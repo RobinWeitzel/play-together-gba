@@ -1,4 +1,8 @@
-# Watch-Together GBA Emulator — Implementation Specification
+# Play-Together GBA — Implementation Specification
+
+> Note: the project was originally drafted as "Watch-Together GBA"; the
+> name was later changed to "Play-Together GBA". The body of this spec
+> still uses the old name in places but it refers to the same project.
 
 > **Save this file as `SPEC.md` in the project root.** It is the single source of truth for the build. It is written to be implemented autonomously.
 

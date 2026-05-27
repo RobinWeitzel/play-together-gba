@@ -1,207 +1,222 @@
-# Watch-Together GBA Emulator
+# Play-Together GBA
 
-A private, mobile-first, browser-based Game Boy Advance emulator that lets a family play turn-based games together. Each client runs its own local mGBA WASM core; one "controller" plays and the others "follow" in sync via WebSocket-relayed inputs + periodic save-state snapshots. **No video is streamed** — the design works behind a Cloudflare Tunnel (HTTP/WS only).
-
-See [`SPEC.md`](./SPEC.md) for the architecture and rationale, [`PROGRESS.md`](./PROGRESS.md) for milestone status, and [`DECISIONS.md`](./DECISIONS.md) for non-obvious technical decisions.
+A small, self-hosted Game Boy Advance emulator that lets a family share a save game across phones, tablets, and laptops. Whoever has the controls plays; everyone else watches in sync over WebSocket. Close your tab and the save stays — anyone in the family can pick it up later.
 
 ---
 
-## How it works (one-paragraph version)
+## ⚠️ Read this before you deploy
 
-The mGBA WebAssembly core is vendored under `/client/public/emulator/` (MPL-2.0). Every client downloads the ROM (gated by SHA-256 hash), boots its own emulator, and renders locally. A small Node WebSocket hub at `/ws` maintains the session roster and the FIFO controller queue (first-joiner controls, next-in-queue is promoted on departure). The controller emits frame-tagged input messages and a save-state snapshot every 1500 ms; followers apply inputs immediately and reload from snapshots (always — SPEC §12.4 "always reload" mode, validated in [`PROGRESS.md`](./PROGRESS.md) Milestone 0). The server never emulates, never streams audio/video — everything is HTTP + WebSocket, which is exactly what a Cloudflare Tunnel forwards.
-
-## Saves, sessions, and contributors
-
-The persistent thing is a **save**. A save owns one ROM and a save-state on disk; it tracks per-player contributed playtime (by player name — no auth). Each save survives container restarts and "everyone left", so a family run lives across days/weeks. A **session** is the in-memory wrapper that exists only while at least one player is connected to that save; the first joiner becomes the controller, others watch, and control passes FIFO when someone leaves. Player name is mandatory the first time you visit; it's persisted in `localStorage` and credited to the contributor ledger of every save you control. The save data directory (`/app/server/data`) must be bind-mounted — see the Docker section below.
-
----
-
-## Dev quickstart
-
-Requires Node 22+. From the repo root:
-
-```bash
-npm install
-npm run dev
-```
-
-This launches:
-
-- The Node server (WS hub + ROM endpoint) on `http://localhost:8080`.
-- The Vite dev server (client) on `http://localhost:5173` with `/ws` proxied to the Node server.
-
-Open two browser tabs at `http://localhost:5173/s/<any-id>?rom=test-arm.gba`. The first tab is the controller; the second mirrors it. Closing the controller hands control to the second tab and resumes from the latest snapshot.
-
-The home page at `http://localhost:5173/` lists ROMs and offers a "Watch-Together" button that creates a session URL for sharing.
-
-**Diagnostics:** the M0 determinism spike is preserved at `http://localhost:5173/spike`.
-
-### Cross-origin isolation
-
-mGBA's threaded WASM build requires `SharedArrayBuffer`, which the browser only exposes when the page is cross-origin-isolated. Both the Vite dev server and the prod Fastify server set:
-
-```
-Cross-Origin-Opener-Policy:   same-origin
-Cross-Origin-Embedder-Policy: require-corp
-Cross-Origin-Resource-Policy: same-origin
-X-Robots-Tag:                 noindex
-```
-
-If the browser console complains about `SharedArrayBuffer` or `crossOriginIsolated === false`, verify the response headers include all three.
+> **This project was vibe-coded.** Almost every line of code in this repository was generated through conversation with a large language model. I (the human credited on the commits) gave it the design brief and the spec, but I did not hand-write it.
+>
+> What that means for you:
+> - **It works for me, on my hardware, with my family.** It might not work for you. There may be sharp edges I never tripped over.
+> - **There is no support.** If you open an issue, I might not answer. If you open a PR, I might not merge it. Please fork freely.
+> - **Don't host anything sensitive on the same machine.** It's never had a real security review.
+> - **Don't expect upstream updates.** This is a personal scratch I built once; it might never be touched again.
+> - **You're running other people's code.** Audit the Dockerfile, the workflow, and the small server before you point a tunnel at it. The full source is ~3 kLOC; you can read it in an afternoon.
+>
+> If you're OK with all that — read on, and have fun. 🎮
 
 ---
 
-## Production build & run
+## What it does
 
-```bash
-npm run build       # builds /client/dist + typechecks /server
-npm start           # serves the built client + WS hub on $PORT (default 8080)
-```
+- **Persistent shared saves.** Create a "save", give it a name, pick a ROM. Your family picks up the same save from any device. The game waits when nobody is playing.
+- **One controller at a time.** Whoever joined first holds the buttons; everyone else watches their tab in sync. Close the controller's tab and the next person in queue takes over from the latest snapshot.
+- **Contributor tracking.** The save credits the person currently holding the controls for the wall-clock time they spend playing. No accounts, no auth — just names entered once on each device.
+- **Mobile-first.** A touch gamepad with three layout options (side controls / overlay / stacked) is the default. Works as a "real" installed app via PWA (Add to Home Screen) on Android and iOS.
+- **No video streaming.** Everyone runs their own [mGBA](https://mgba.io/) WebAssembly core locally; the server only relays inputs and small (~2 KB) save-state snapshots. That means it works behind a Cloudflare Tunnel where UDP/WebRTC don't.
 
-That's it — one process serves both the static client and the WebSocket hub. Visit `http://localhost:8080/` to confirm.
+---
 
-### Docker (recommended for Unraid / any container host)
+## What you need to deploy this
 
-A multi-arch image is published to GHCR by the GitHub Actions workflow in [`.github/workflows/docker.yml`](.github/workflows/docker.yml):
+- A box that can run Docker (NAS, home server, a Linux laptop, a Raspberry Pi 4+, etc.).
+- A few GBA ROMs that you own. **None are included** — you provide your own.
+- *(Optional)* A Cloudflare account if you want family to play from outside your home network.
 
-- `ghcr.io/robinweitzel/remote-gba-emulator:latest` — head of `main`
-- `ghcr.io/robinweitzel/remote-gba-emulator:vX.Y.Z` — tagged releases
-- `ghcr.io/robinweitzel/remote-gba-emulator:sha-<short>` — every commit
+Targeted at **Android Chrome** and **desktop Chrome/Edge**. iOS Safari mostly works (fullscreen / orientation lock are limited), but it's not the gating target.
 
-The image bundles the test ROM. To use your own, bind-mount a host directory onto `/app/server/roms`.
+---
 
-#### Quickstart (any Docker host)
+## Quickstart with Docker
 
 ```bash
 docker run -d \
-  --name watch-together-gba \
+  --name play-together-gba \
   -p 8080:8080 \
   -v /path/to/your/roms:/app/server/roms \
   -v /path/to/your/data:/app/server/data \
   --restart unless-stopped \
-  ghcr.io/robinweitzel/remote-gba-emulator:latest
+  ghcr.io/robinweitzel/play-together-gba:latest
 ```
 
-Visit `http://<host>:8080`. The server hashes every `.gba` in the mounted roms directory at startup; if you add new ROMs, restart the container.
+Open `http://<your-server>:8080`. Done.
 
-**Two mounts to know about**:
-- `/app/server/roms` — ROM library (read by the server at startup).
-- `/app/server/data` — persistent save data (game state, save names, contributor minutes). **If you skip this mount, all saves are lost the moment the container is recreated.**
+Drop `.gba` files into the host folder you mounted at `/app/server/roms` and restart the container — the server hashes ROMs on boot only.
 
-`docker-compose.yml` is provided as a more convenient starting point:
+**The two mounts matter:**
+- `/app/server/roms` — your ROM library.
+- `/app/server/data` — persistent saves (game state + names + minutes-per-player). **Skip this mount and every save vanishes the moment the container is recreated.**
+
+If you'd rather use Compose, there's a ready-to-go `docker-compose.yml` in the repo. Edit the volume paths and `docker compose up -d`.
+
+---
+
+## Quickstart on Unraid
+
+1. **Community Apps → Docker → Add Container.**
+2. Fill in:
+   - **Repository:** `ghcr.io/robinweitzel/play-together-gba:latest`
+   - **Network Type:** Bridge (default)
+   - **Port:** Container `8080` → Host `8080` (or any free host port; map it via your reverse proxy later)
+   - **Path 1 (ROMs):** Container `/app/server/roms` → Host `/mnt/user/appdata/play-together-gba/roms` (Read/Write)
+   - **Path 2 (Saves):** Container `/app/server/data` → Host `/mnt/user/appdata/play-together-gba/data` (Read/Write)
+   - **Restart Policy:** unless-stopped
+3. Apply. First pull is ~200 MB.
+4. Drop your ROMs into `…/roms/` and restart the container.
+
+**Heads-up about the GHCR image:** GitHub publishes new container images as **private** by default for the user that owns the repo. If your Unraid host can't pull, either:
+- Make the package public: GitHub → your profile → Packages → `play-together-gba` → Package settings → Change visibility → Public. Recommended for self-hosted use; the image contains no secrets.
+- Or `docker login ghcr.io -u <username> -p <PAT-with-read:packages>` once on the Unraid host.
+
+---
+
+## Letting family outside your home network play
+
+The server only needs to expose HTTP and WebSockets. A few options:
+
+### Cloudflare Tunnel (what I use)
+
+`cloudflared` ties a public URL to your local server without opening any router ports.
 
 ```bash
-docker compose up -d
-# or, with the published image:
-sed -i 's|build: .|image: ghcr.io/robinweitzel/remote-gba-emulator:latest|' docker-compose.yml
-docker compose up -d
+cloudflared tunnel --url http://localhost:8080
 ```
 
-#### Unraid
+For something more permanent: name the tunnel, attach a DNS record on your domain, and run `cloudflared` as a service. Cloudflare's own docs walk you through it. Pair it with Cloudflare Access if you want a one-click family-only login.
 
-1. **Community Apps → Docker → Add Container.** Fill in:
-   - **Repository:** `ghcr.io/robinweitzel/remote-gba-emulator:latest`
-   - **Network Type:** Bridge (default)
-   - **Port:** Container `8080` → Host `8080` (or whatever you prefer; map it through your reverse proxy after)
-   - **Path 1 (ROMs):** Container `/app/server/roms` → Host `/mnt/user/appdata/watch-together-gba/roms` (Read/Write)
-   - **Path 2 (Saves):** Container `/app/server/data` → Host `/mnt/user/appdata/watch-together-gba/data` (Read/Write)
-   - **Restart Policy:** unless-stopped
-2. Apply. The first pull takes ~2 minutes (image is ~250 MB).
-3. Copy your ROMs into `/mnt/user/appdata/watch-together-gba/roms/` and either restart the container or visit `http://<unraid-ip>:8080` once and reload (the server hashes ROMs on boot only).
-4. The saves directory will be auto-populated as you create saves through the UI — they survive container recreation as long as the volume is mounted.
+**One footgun**: the tunnel **must pass `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` through unmodified.** The threaded mGBA WASM build needs those headers, and some Cloudflare features (Workers in front, certain Transform Rules) will strip them. After deployment, open the public URL → DevTools → Console and check `crossOriginIsolated` — if it's `false`, that's where to look.
 
-**GHCR visibility:** the image is published to your GitHub account's container registry. By default GitHub makes packages **private**, which means Unraid won't be able to pull without auth. Either:
+### Tailscale / WireGuard
 
-- **Make it public:** GitHub → your profile → Packages → `remote-gba-emulator` → Package settings → Change visibility → Public. (Recommended for a private self-hosted app on a private network — the *image* is just the code, no secrets.)
-- **Or supply credentials:** create a personal access token with `read:packages` and run `docker login ghcr.io -u <username> -p <token>` on your Unraid host once.
+Cleaner if everyone in the family is on the same overlay network. Install Tailscale on the server and each family device; access via the server's MagicDNS name. No public exposure at all.
 
-### Behind Cloudflare Tunnel
+---
 
-1. **Run `cloudflared`** pointing the Tunnel at the local prod server:
+## How saves & contributors work
 
-   ```bash
-   cloudflared tunnel --url http://localhost:8080
-   ```
+- A **save** is a named, persistent file on the server: ROM + save state + contributor ledger.
+- The **first person to open a save** becomes the controller. Anyone else who joins watches.
+- When the controller's tab closes, the next person in queue gets promoted automatically.
+- Everyone enters their name once on first visit; it's stored in `localStorage`. The currently-playing person accumulates minutes against their name on each save they touch.
+- Saves can be **archived** (soft-hidden) and restored from the home page. Deletion is intentionally not exposed — saves live forever on disk.
 
-   (or run a named Tunnel + DNS route per Cloudflare's docs).
+You can have as many parallel saves as you want — one per game, one per kid, one per playthrough, whatever.
 
-2. **The Tunnel must pass `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` through unmodified.** Cloudflare proxies HTTP/HTTPS and WebSockets but does not pass UDP/WebRTC, which is exactly why we chose this design — but it *can* strip or replace response headers in some configurations (e.g., a Worker in front, or a Page Rule that sets COOP/COEP to a different value). After deployment, open browser DevTools → Network → click any document/asset and verify the COOP/COEP headers are present. If they are stripped, check Cloudflare Dashboard → Rules / Workers / Transform Rules.
+---
 
-3. **Auth is assumed to be handled upstream** by Cloudflare Access (or whatever you choose). The app itself does not implement signup; it adds `X-Robots-Tag: noindex` so it isn't indexed.
+## Troubleshooting
 
-4. **WebSocket forwarding** is automatic with Cloudflare Tunnel — no extra config needed beyond a normal HTTP origin.
+| Symptom | What to check |
+|---|---|
+| Page loads but the canvas stays black / a console error mentions `SharedArrayBuffer` | Cross-origin isolation. The server sets COOP/COEP/CORP; verify they reach the browser. Behind Cloudflare Tunnel, check for a Worker or Transform Rule stripping them. |
+| Saves vanish when I recreate the container | The `/app/server/data` mount is missing or pointing at an ephemeral path. |
+| ROMs don't appear on the home page | Filename must end in `.gba`. ROMs are hashed only at startup — restart the container after dropping new ones in. |
+| "ROM hash mismatch" when joining a save | The ROM file on the server changed after the save was created. Either restore the original ROM or create a fresh save with the new file. |
+| Controls feel laggy on a follower's screen | Followers always lag behind by network RTT + the snapshot interval (default 1.5 s). That's by design — turn-based games (Pokémon, etc.) feel fine; twitch action games will not. |
+| Multitouch doesn't work on D-pad + A simultaneously | Should work on Android Chrome — uses `setPointerCapture`. iOS Safari can be flaky depending on iOS version; the layout picker (⚙) has an Overlay mode that may help. |
+| Audio is silent on a follower | Followers are muted by default. Use the 🔊 toggle in the header. (Audio echoing across multiple tabs is a worse default.) |
 
-### Smoke-checking the deploy
+---
 
-After `cloudflared` is up and the public URL is reachable:
+## Adding it to your phone's home screen
 
-- Open `https://<your-domain>/` in two phones (or two browser tabs).
-- Tab A: pick a ROM → "Watch-Together" → tap to start. Confirm role is "controller".
-- Tab B: open the resulting `/s/<id>?rom=...` URL. Confirm role is "follower"; the gamepad is faded.
-- Press buttons in Tab A; Tab B mirrors within ~1.5 s.
-- Close Tab A; Tab B should flip to controller within a snapshot interval, and the game continues.
+There's a tiny PWA manifest, no service worker, no offline caching (intentional — caching would risk users getting stale builds).
 
-If something doesn't work, browser DevTools → Console + Network is the right place to look (the app logs to console liberally).
+- **Android Chrome:** the menu shows "Install app" or "Add to Home Screen".
+- **iOS Safari:** Share → Add to Home Screen.
+
+Once installed, it launches in standalone mode (no browser chrome) with a gradient gamepad icon. It still talks to the server every time it opens — no offline mode.
+
+---
+
+## Building from source
+
+You need Node 22+.
+
+```bash
+git clone https://github.com/RobinWeitzel/play-together-gba
+cd play-together-gba
+npm install
+npm run dev
+```
+
+Opens the client at `http://localhost:5173/` and the server at `http://localhost:8080/` (Vite proxies `/api` and `/ws` to it).
+
+For a production build:
+
+```bash
+npm run build
+npm start                 # serves /client/dist + WS hub on $PORT (default 8080)
+```
+
+To build your own container:
+
+```bash
+docker build -t play-together-gba:local .
+docker run -p 8080:8080 \
+  -v ./roms:/app/server/roms \
+  -v ./data:/app/server/data \
+  play-together-gba:local
+```
+
+There's a determinism-spike page at `/spike` that the build used to validate the emulator's save-state behaviour; useful for debugging if a deploy ever stops working.
 
 ---
 
 ## ROMs
 
-ROMs live in `/server/roms/`. They are **not** committed (`.gitignored`), except for a small public-domain test ROM:
+**You provide your own ROMs.** Drop `.gba` files into the `/app/server/roms` mount. The repo ships exactly one ROM for the test suite: `test-arm.gba` (Julian Smolka's MIT-licensed [ARM CPU test ROM](https://github.com/jsmolka/gba-tests)) — not a game, just a CPU test that draws "Passed/Failed test N" to the screen. It exists so a fresh install has *something* to boot.
 
-- `test-arm.gba` — Julian Smolka's [GBA ARM test ROM](https://github.com/jsmolka/gba-tests) (MIT). Renders pass/fail of CPU tests; used to verify the emulator boots end-to-end.
+The server hashes every ROM at startup to enforce that all clients are running the same bytes. ROMs are gitignored; nothing about them ever leaves your machine.
 
-Drop your own legally-obtained ROMs into `/server/roms/`. The server hashes them at startup and serves them via `GET /api/roms/:id`. The client verifies the SHA-256 against `/api/roms` metadata before booting and rejects mismatches (SPEC §15 integrity).
-
-**No Nintendo BIOS** is included or needed — mGBA's built-in HLE BIOS is used.
+No Nintendo BIOS is needed or shipped — mGBA's built-in HLE BIOS is used.
 
 ---
 
-## Regenerating the vendored mGBA core
+## Credits & license
 
-The mGBA WASM core (`@thenick775/mgba-wasm` v2.4.1, MPL-2.0) is vendored at `/client/public/emulator/{mgba.js, mgba.wasm, mgba.d.ts}` with `LICENSE` + `NOTICE`. To bump:
-
-```bash
-# in a scratch directory
-npm install @thenick775/mgba-wasm@<version>
-# Copy node_modules/@thenick775/mgba-wasm/dist/{mgba.js,mgba.wasm,mgba.d.ts}
-#   into /client/public/emulator/
-# Refresh /client/public/emulator/NOTICE with the new version + date
-# Re-read the .d.ts and update DECISIONS.md if any APIs changed
-# Re-run the M0 spike at /spike to confirm determinism
-```
-
-The package's source is buildable from a Dockerfile in the upstream repo (`thenick775/mgba` on GitHub, branch `feature/wasm`).
+- **[mGBA](https://mgba.io/)** by endrift and contributors — the actual emulator. MPL-2.0. The compiled WebAssembly build is vendored under `/client/public/emulator/` ([@thenick775/mgba-wasm](https://github.com/thenick775/mgba)) and includes its own `LICENSE` + `NOTICE`.
+- **Test ROM:** `test-arm.gba` by [jsmolka](https://github.com/jsmolka/gba-tests), MIT.
+- **The rest of this repo** was written almost entirely by a large language model under my supervision. See the disclaimer at the top.
 
 ---
 
-## Project layout
+## Project layout (if you're poking around)
 
 ```
-/SPEC.md                  ← source-of-truth specification
-/README.md                ← this file
-/PROGRESS.md              ← milestone log
-/DECISIONS.md             ← non-obvious choices logged here
-/QUESTIONS.md             ← open human-judgement items
-/client                   ← React + Vite + TS SPA
-  /public/emulator/       ← vendored mGBA WASM core
-  /src
-    /emulator             ← loadMgba wrapper, snapshot helpers
-    /net                  ← typed WS client w/ auto-reconnect
-    /ui                   ← HomePage, PlayPage, SessionPage, Gamepad, styles
-    /lib                  ← hash, b64, wake-lock, router, api
-    /spike                ← M0 determinism spike (at /spike)
-/server                   ← Fastify + ws hub + ROM endpoint
-  /src
-    index.ts              ← HTTP + WS + COOP/COEP middleware
-    sessions.ts           ← in-memory session store + controller queue
-    roms.ts               ← ROM hashing + serving
-  /roms                   ← drop ROMs here (gitignored; test ROM committed)
-/shared                   ← TS protocol types shared by client & server
+/SPEC.md                  ← original design brief
+/PROGRESS.md              ← milestone log (M0–M4)
+/DECISIONS.md             ← non-obvious technical choices and why
+/QUESTIONS.md             ← open items the LLM couldn't decide on its own
+
+/client                   ← React + Vite + TypeScript SPA
+  /public/emulator/       ← vendored mGBA WASM core (MPL-2.0)
+  /public/icons/          ← PWA icon
+  /src                    ← see /src/ui for screens, /src/emulator for the wrapper
+
+/server                   ← Fastify + ws hub, runs via tsx in dev and prod
+  /src/index.ts           ← HTTP + WS routes + COOP/COEP
+  /src/saves.ts           ← file-backed save store + contributor ledger
+  /src/sessions.ts        ← in-memory session + controller queue
+  /roms                   ← drop your ROMs here (gitignored; test ROM committed)
+
+/shared/src               ← TS types shared by client & server
+
+Dockerfile                ← multi-stage; alpine; ships /client/dist + tsx-run server
+docker-compose.yml        ← ready to copy + edit volume paths
+.github/workflows/        ← multi-arch (amd64 + arm64) image build → GHCR
 ```
 
----
-
-## License
-
-The mGBA core is MPL-2.0. See `/client/public/emulator/LICENSE` and `/client/public/emulator/NOTICE`. Application code in this repo is the author's; the layout and the test ROM (jsmolka, MIT) are credited where applicable.
+That's it. If you fix something obvious in your fork, please post a link in the issues — I'll probably never merge it but other family-deployers might find it useful.

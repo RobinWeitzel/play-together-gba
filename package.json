@@ -1,8 +1,8 @@
 {
-  "name": "remote-gba-emulator",
+  "name": "play-together-gba",
   "private": true,
   "version": "0.0.0",
-  "description": "Private, mobile-first, browser-based GBA emulator with watch-together sync. See SPEC.md.",
+  "description": "A self-hosted Game Boy Advance emulator with shared family saves. See SPEC.md.",
   "workspaces": [
     "client",
     "server",

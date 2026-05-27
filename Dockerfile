@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-# Watch-Together GBA Emulator — production image.
+# Play-Together GBA — production image.
 #
 # Multi-stage build:
 #   1. builder: installs all workspace deps and runs `npm run build`

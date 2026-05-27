@@ -1,14 +1,14 @@
-# Local / Unraid-friendly compose definition for the watch-together GBA
-# emulator. After `docker compose up -d`, browse to http://localhost:8080.
+# Local / Unraid-friendly compose definition for Play-Together GBA.
+# After `docker compose up -d`, browse to http://localhost:8080.
 #
 # To run with a published image instead of the local Dockerfile, comment out
 # `build: .` and uncomment `image:` below.
 
 services:
   gba:
-    container_name: watch-together-gba
+    container_name: play-together-gba
     build: .
-    # image: ghcr.io/robinweitzel/remote-gba-emulator:latest
+    # image: ghcr.io/robinweitzel/play-together-gba:latest
     restart: unless-stopped
     ports:
       - "8080:8080"

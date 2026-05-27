@@ -60,8 +60,8 @@ jobs:
             # Always include the short SHA
             type=sha,prefix=sha-
           labels: |
-            org.opencontainers.image.title=Watch-Together GBA Emulator
-            org.opencontainers.image.description=Private, mobile-first, browser-based GBA emulator with WebSocket-driven watch-together sync.
+            org.opencontainers.image.title=Play-Together GBA
+            org.opencontainers.image.description=Self-hosted Game Boy Advance emulator with shared family saves; WebSocket-driven sync, mobile-first.
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=MPL-2.0
 

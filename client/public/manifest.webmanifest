@@ -1,6 +1,6 @@
 {
-  "name": "Watch-Together GBA",
-  "short_name": "GBA Together",
+  "name": "Play-Together GBA",
+  "short_name": "Play GBA",
   "description": "Shared Game Boy Advance saves you can pick up together.",
   "start_url": "/",
   "scope": "/",

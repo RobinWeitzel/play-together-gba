@@ -172,7 +172,7 @@ export function HomePage() {
           <div className="home-brand">
             <div className="brand-mark"><IconGamepad size={22} /></div>
             <div>
-              <h1>Watch-Together GBA</h1>
+              <h1>Play-Together GBA</h1>
               <p className="tagline">Shared GBA saves for your family run.</p>
             </div>
           </div>
