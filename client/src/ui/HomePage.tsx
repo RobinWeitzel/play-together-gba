@@ -29,6 +29,7 @@ import {
 } from "../lib/player";
 import type { SaveSummary } from "@gba/shared";
 import { Avatar } from "./Avatar";
+import { InstallButton } from "./InstallButton";
 import {
   IconBookmark,
   IconGamepad,
@@ -230,18 +231,21 @@ export function HomePage() {
               <p className="tagline">Shared GBA saves for your family run.</p>
             </div>
           </div>
-          {nameOk && !editingName && (
-            <button
-              className="player-pill"
-              onClick={() => { setNameDraft(name); setEditingName(true); }}
-              data-testid="player-pill"
-              title="Click to change your name"
-            >
-              <Avatar name={name} size={26} />
-              <span>{name}</span>
-              <span className="change">change</span>
-            </button>
-          )}
+          <div className="home-hero-actions">
+            <InstallButton />
+            {nameOk && !editingName && (
+              <button
+                className="player-pill"
+                onClick={() => { setNameDraft(name); setEditingName(true); }}
+                data-testid="player-pill"
+                title="Click to change your name"
+              >
+                <Avatar name={name} size={26} />
+                <span>{name}</span>
+                <span className="change">change</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {err && <div className="alert-error" data-testid="home-error">{err}</div>}

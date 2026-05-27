@@ -170,6 +170,32 @@ input:focus, select:focus, button:focus-visible {
   .home-brand .tagline { font-size: 13px; white-space: normal; }
 }
 
+.home-hero-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 60%;
+}
+
+.install-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--indigo) 0%, var(--accent-hi) 100%);
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  box-shadow: var(--shadow-2);
+  flex-shrink: 0;
+}
+.install-btn:hover { filter: brightness(1.08); }
+.install-btn:active { transform: translateY(1px); }
+
 .player-pill {
   display: inline-flex;
   align-items: center;
@@ -182,7 +208,7 @@ input:focus, select:focus, button:focus-visible {
   color: var(--fg);
   cursor: pointer;
   flex-shrink: 0;
-  max-width: 45%;
+  max-width: 100%;
 }
 .player-pill > span:first-of-type {
   overflow: hidden;
