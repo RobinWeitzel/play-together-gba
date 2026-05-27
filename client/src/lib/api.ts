@@ -44,3 +44,17 @@ export async function createSave(input: { name: string; romId: string }): Promis
   const j: CreateSaveResponse = await res.json();
   return j.save;
 }
+
+async function setArchived(id: string, archived: boolean): Promise<SaveSummary> {
+  const path = archived ? "archive" : "unarchive";
+  const res = await fetch(`/api/saves/${encodeURIComponent(id)}/${path}`, { method: "POST" });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
+    throw new Error(`${path}: ${res.status}${detail ? ` — ${detail}` : ""}`);
+  }
+  return (await res.json()).save;
+}
+
+export const archiveSave = (id: string) => setArchived(id, true);
+export const unarchiveSave = (id: string) => setArchived(id, false);

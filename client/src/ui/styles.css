@@ -491,30 +491,74 @@ input:focus, select:focus, button:focus-visible {
   gap: 14px;
 }
 
-/* Join-by-input */
-.join-by-input {
+/* Save-card secondary actions (kebab menu) */
+.save-card-actions {
   display: flex;
-  gap: 8px;
+  align-items: stretch;
+  gap: 6px;
 }
-.join-by-input input {
-  flex: 1 1 auto;
-  min-width: 0;
-  background: var(--bg-elev-0);
-  color: var(--fg);
+.save-menu-wrap { position: relative; display: flex; }
+.save-menu-btn {
+  background: var(--bg-elev-2);
   border: 1px solid var(--border);
+  color: var(--muted);
+  width: 36px;
   border-radius: var(--radius);
-  padding: 10px 12px;
-  font-size: 14px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
 }
-.join-by-input button {
-  background: var(--bg-elev-3);
-  color: var(--fg);
+.save-menu-btn:hover { background: var(--bg-elev-3); color: var(--fg); }
+.save-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-elev-2);
   border: 1px solid var(--border-strong);
-  padding: 10px 16px;
   border-radius: var(--radius);
-  font-size: 14px;
-  font-weight: 600;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+  z-index: 25;
+  box-shadow: var(--shadow-2);
 }
+.save-menu-item {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: var(--fg);
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  font-family: inherit;
+}
+.save-menu-item:hover { background: var(--bg-elev-3); }
+.save-menu-item:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Archived saves */
+.save-card.archived {
+  opacity: 0.78;
+  background: var(--bg-elev-0);
+}
+.save-card.archived .save-name { color: var(--fg); }
+.save-list-archived { margin-top: 4px; }
+
+.archived-toggle {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.archived-toggle:hover { color: var(--fg); }
+.archived-toggle .count { color: var(--muted-soft); letter-spacing: 0; text-transform: none; font-weight: 500; }
 
 /* ===================================================================
  *  Avatar

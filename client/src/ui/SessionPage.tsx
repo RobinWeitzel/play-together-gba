@@ -24,7 +24,7 @@ import { formatMs, getPlayerName, setPlayerName } from "../lib/player";
 import { useControlLayout } from "../lib/settings";
 import { SettingsMenu } from "./SettingsMenu";
 import { Avatar } from "./Avatar";
-import { IconBack, IconMuted, IconShare, IconUnmuted } from "./icons";
+import { IconBack, IconMuted, IconUnmuted } from "./icons";
 import {
   DEFAULTS,
   type Role,
@@ -67,7 +67,6 @@ export function SessionPage() {
   const [connState, setConnState] = useState<"connecting" | "open" | "closed">("connecting");
   const [muted, setMuted] = useState<boolean>(true);
   const [contributors, setContributors] = useState<Record<string, number>>({});
-  const [shareToast, setShareToast] = useState<string | null>(null);
   const [playerName, setPlayerNameState] = useState<string>(getPlayerName());
   const { layout, pref: layoutPref, setPref: setLayoutPref } = useControlLayout();
 
@@ -356,38 +355,6 @@ export function SessionPage() {
     coreRef.current?.setVolume(next ? 0 : 1);
   };
 
-  const shareUrl = (() => {
-    const u = new URL(window.location.href);
-    return u.toString();
-  })();
-
-  const showToast = (msg: string) => {
-    setShareToast(msg);
-    window.setTimeout(() => setShareToast(null), 2500);
-  };
-
-  const onShare = async () => {
-    const nav: any = navigator;
-    if (typeof nav.share === "function") {
-      try {
-        await nav.share({
-          title: `${saveName} — Watch-Together GBA`,
-          text: `Join my GBA save "${saveName}"`,
-          url: shareUrl,
-        });
-        return;
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      showToast("Save link copied to clipboard");
-    } catch {
-      window.prompt("Copy this save link:", shareUrl);
-    }
-  };
-
   // ----- needs-name gate: render BEFORE booting WS so we can collect a name -----
   if (status === "needs-name") {
     return (
@@ -457,10 +424,6 @@ export function SessionPage() {
           </span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={onShare} className="share-btn" data-testid="share-btn" title="Copy or share the save URL"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <IconShare size={12} /> <span>Share</span>
-          </button>
           <button onClick={toggleMute} data-testid="mute-toggle" title={muted ? "Unmute" : "Mute"}
                   style={{ display: "inline-flex", alignItems: "center" }}>
             {muted ? <IconMuted size={14} /> : <IconUnmuted size={14} />}
@@ -532,15 +495,10 @@ export function SessionPage() {
               <button onClick={onTapStart} data-testid="tap-to-start" className="primary">
                 Tap to start
               </button>
-              <button onClick={onShare} data-testid="share-overlay" className="secondary">
-                Share link
-              </button>
             </div>
           </div>
         </div>
       )}
-
-      {shareToast && <div className="share-toast" data-testid="share-toast">{shareToast}</div>}
     </div>
   );
 }

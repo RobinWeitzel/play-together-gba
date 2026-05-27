@@ -99,12 +99,25 @@ function summarizeSave(meta: SaveMeta): SaveSummary {
     romName: meta.romName,
     createdAt: meta.createdAt,
     updatedAt: meta.updatedAt,
+    archived: meta.archived,
     contributors: { ...meta.contributors },
     live,
   };
 }
 
 app.get("/api/saves", async () => ({ saves: saves.list().map(summarizeSave) }));
+
+app.post<{ Params: { id: string } }>("/api/saves/:id/archive", async (req, reply) => {
+  const updated = await saves.setArchived(req.params.id, true);
+  if (!updated) { reply.code(404); return { error: "not found" }; }
+  return { save: summarizeSave(updated) };
+});
+
+app.post<{ Params: { id: string } }>("/api/saves/:id/unarchive", async (req, reply) => {
+  const updated = await saves.setArchived(req.params.id, false);
+  if (!updated) { reply.code(404); return { error: "not found" }; }
+  return { save: summarizeSave(updated) };
+});
 
 app.post<{ Body: CreateSaveRequest }>("/api/saves", async (req, reply) => {
   const body = req.body ?? ({} as CreateSaveRequest);

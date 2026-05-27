@@ -177,6 +177,7 @@ export interface SaveSummary {
   romName: string;
   createdAt: number;
   updatedAt: number;
+  archived: boolean;
   contributors: Record<string, number>; // playerName → totalControllerMs
   // Live-session info; null when no one is currently in the save.
   live: {

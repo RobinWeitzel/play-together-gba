@@ -24,6 +24,9 @@ export interface SaveMeta {
   updatedAt: number;
   // playerName → cumulative milliseconds spent as controller
   contributors: Record<string, number>;
+  // Soft-deleted by the user. Archived saves are still on disk and still
+  // joinable by URL — they just don't surface in the default home list.
+  archived: boolean;
 }
 
 function safeId(): string {
@@ -53,6 +56,9 @@ export class SaveStore {
         const raw = await fs.readFile(metaPath, "utf8");
         const meta = JSON.parse(raw) as SaveMeta;
         if (!meta?.id || meta.id !== name) continue;
+        // Migration: older meta files may not have `archived`. Default it
+        // to false so existing saves continue to show up.
+        if (typeof meta.archived !== "boolean") meta.archived = false;
         this.metas.set(meta.id, meta);
       } catch {
         // Skip malformed entries silently — caller will see them missing.
@@ -80,6 +86,7 @@ export class SaveStore {
       createdAt: now,
       updatedAt: now,
       contributors: {},
+      archived: false,
     };
     await fs.mkdir(path.join(this.dir, id), { recursive: true });
     await writeFileAtomic(path.join(this.dir, id, "meta.json"), JSON.stringify(meta, null, 2));
@@ -113,6 +120,15 @@ export class SaveStore {
     // Don't fsync the meta on every snapshot just for updatedAt — readers
     // can see the file mtime if precision matters. But keep in-memory fresh.
     this.metas.set(saveId, meta);
+  }
+
+  async setArchived(saveId: string, archived: boolean): Promise<SaveMeta | undefined> {
+    const meta = this.metas.get(saveId);
+    if (!meta) return undefined;
+    if (meta.archived === archived) return meta;
+    meta.archived = archived;
+    await this.writeMeta(meta);
+    return meta;
   }
 
   async readSnapshot(saveId: string): Promise<Uint8Array | null> {
