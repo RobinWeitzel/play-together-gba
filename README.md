@@ -10,6 +10,10 @@ See [`SPEC.md`](./SPEC.md) for the architecture and rationale, [`PROGRESS.md`](.
 
 The mGBA WebAssembly core is vendored under `/client/public/emulator/` (MPL-2.0). Every client downloads the ROM (gated by SHA-256 hash), boots its own emulator, and renders locally. A small Node WebSocket hub at `/ws` maintains the session roster and the FIFO controller queue (first-joiner controls, next-in-queue is promoted on departure). The controller emits frame-tagged input messages and a save-state snapshot every 1500 ms; followers apply inputs immediately and reload from snapshots (always — SPEC §12.4 "always reload" mode, validated in [`PROGRESS.md`](./PROGRESS.md) Milestone 0). The server never emulates, never streams audio/video — everything is HTTP + WebSocket, which is exactly what a Cloudflare Tunnel forwards.
 
+## Saves, sessions, and contributors
+
+The persistent thing is a **save**. A save owns one ROM and a save-state on disk; it tracks per-player contributed playtime (by player name — no auth). Each save survives container restarts and "everyone left", so a family run lives across days/weeks. A **session** is the in-memory wrapper that exists only while at least one player is connected to that save; the first joiner becomes the controller, others watch, and control passes FIFO when someone leaves. Player name is mandatory the first time you visit; it's persisted in `localStorage` and credited to the contributor ledger of every save you control. The save data directory (`/app/server/data`) must be bind-mounted — see the Docker section below.
+
 ---
 
 ## Dev quickstart
@@ -73,11 +77,16 @@ docker run -d \
   --name watch-together-gba \
   -p 8080:8080 \
   -v /path/to/your/roms:/app/server/roms \
+  -v /path/to/your/data:/app/server/data \
   --restart unless-stopped \
   ghcr.io/robinweitzel/remote-gba-emulator:latest
 ```
 
 Visit `http://<host>:8080`. The server hashes every `.gba` in the mounted roms directory at startup; if you add new ROMs, restart the container.
+
+**Two mounts to know about**:
+- `/app/server/roms` — ROM library (read by the server at startup).
+- `/app/server/data` — persistent save data (game state, save names, contributor minutes). **If you skip this mount, all saves are lost the moment the container is recreated.**
 
 `docker-compose.yml` is provided as a more convenient starting point:
 
@@ -94,10 +103,12 @@ docker compose up -d
    - **Repository:** `ghcr.io/robinweitzel/remote-gba-emulator:latest`
    - **Network Type:** Bridge (default)
    - **Port:** Container `8080` → Host `8080` (or whatever you prefer; map it through your reverse proxy after)
-   - **Path:** Container `/app/server/roms` → Host `/mnt/user/appdata/watch-together-gba/roms` (Read/Write)
+   - **Path 1 (ROMs):** Container `/app/server/roms` → Host `/mnt/user/appdata/watch-together-gba/roms` (Read/Write)
+   - **Path 2 (Saves):** Container `/app/server/data` → Host `/mnt/user/appdata/watch-together-gba/data` (Read/Write)
    - **Restart Policy:** unless-stopped
 2. Apply. The first pull takes ~2 minutes (image is ~250 MB).
 3. Copy your ROMs into `/mnt/user/appdata/watch-together-gba/roms/` and either restart the container or visit `http://<unraid-ip>:8080` once and reload (the server hashes ROMs on boot only).
+4. The saves directory will be auto-populated as you create saves through the UI — they survive container recreation as long as the volume is mounted.
 
 **GHCR visibility:** the image is published to your GitHub account's container registry. By default GitHub makes packages **private**, which means Unraid won't be able to pull without auth. Either:
 

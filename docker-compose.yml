@@ -23,6 +23,10 @@ services:
       # ROM; if you want it to remain available alongside your own, copy
       # it once into the host directory.
       - ./roms:/app/server/roms:rw
+      # Persistent save data — the game state, save names, and contributor
+      # ledgers. MOUNT THIS or you lose your runs every time the container
+      # is recreated.
+      - ./data:/app/server/data:rw
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/roms"]
       interval: 30s

@@ -1,18 +1,15 @@
-// Session screen — emulator + WS-driven sync (M3).
+// Session screen — emulator + WS-driven sync against a persistent SAVE.
 //
-// Sync model:
-//   - Controller: emits frame-tagged INPUT messages on every press/release,
-//     plus a periodic SNAPSHOT (default 1500ms; SPEC §17).
-//   - Followers: receive INPUTs (apply immediately — see below) and
-//     SNAPSHOTS (always loadAutoSaveState, per DECISIONS.md §12.4 mode).
-//   - Controller leaves → next-in-queue receives `becomeController` with the
-//     latest stored snapshot. Loads it, swaps role, resumes free play.
+// URL: /s/<saveId>   (no ROM in the URL; the server tells us)
 //
-// We chose §12.4 ("always reload on snapshot") in M0 because mGBA's save
-// state PNG encodes lifecycle-specific bytes that differ between freshly-
-// booted and freshly-booted-then-loaded instances — so a det-hash compare
-// across controller/follower is unreliable. At 1500ms snapshot cadence for
-// turn-based games, always-reload is fine.
+// Flow:
+//   1. Mount the canvas, open the WS, send `join { saveId, name }`.
+//   2. Receive `welcome` carrying romId, romHash, saveName, contributors,
+//      and the latest snapshot if any.
+//   3. Fetch the ROM, hash-check, load into mGBA. If a snapshot was in the
+//      welcome, buffer it; apply after tap-to-start.
+//   4. From there: controller emits frame-tagged inputs + 1500ms snapshots;
+//      followers apply both (snapshots always reload, §12.4 mode).
 
 import { useEffect, useRef, useState } from "react";
 import { createMgba, type MgbaCore } from "../emulator/loadMgba";
@@ -23,34 +20,41 @@ import { Gamepad } from "./Gamepad";
 import { navigate, useRoute } from "../lib/router";
 import { connect, wsUrl, type NetHandle } from "../net/ws";
 import { bytesToBase64, base64ToBytes } from "../lib/b64";
-import { DEFAULTS, type Role, type RosterEntry, type ServerMsg, type GbaButton } from "@gba/shared";
+import { formatMs, getPlayerName, setPlayerName } from "../lib/player";
+import {
+  DEFAULTS,
+  type Role,
+  type RosterEntry,
+  type ServerMsg,
+  type GbaButton,
+} from "@gba/shared";
 
-type Status = "loading" | "needs-tap" | "running" | "error";
+type Status = "loading" | "needs-name" | "needs-tap" | "running" | "error";
 
 export function SessionPage() {
   const route = useRoute();
-  const sessionId = route.path.replace(/^\/s\//, "");
-  const romId = route.search.get("rom");
-  const initialName = route.search.get("name") ?? localStorage.getItem("name") ?? "";
+  const saveId = route.path.replace(/^\/s\//, "");
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const coreRef = useRef<MgbaCore | null>(null);
   const netRef = useRef<NetHandle | null>(null);
   const wakeRef = useRef<{ release(): void } | null>(null);
   const snapshotTimerRef = useRef<number | null>(null);
-  // Latest known role — kept in a ref so callbacks see fresh value
-  // without recreating handlers on every role change.
   const roleRef = useRef<Role | null>(null);
   const mutedRef = useRef<boolean>(true);
   const lastSnapshotFrameRef = useRef<number>(-1);
-  // Snapshots received before tap-to-start (core paused) get buffered and
-  // applied after resume. We only keep the latest — older snapshots are
-  // strictly less informative.
   const pendingSnapshotRef = useRef<{ data: string; frame: number } | null>(null);
   const runningRef = useRef<boolean>(false);
+  // Track whether we've already booted the core, so a reconnect's welcome
+  // doesn't try to re-load the ROM into mGBA.
+  const coreBootedRef = useRef<boolean>(false);
+  // Stash the join name so reconnects use the same player name; if the user
+  // edited their name in another tab we don't surprise them mid-session.
+  const joinNameRef = useRef<string>("");
 
   const [status, setStatus] = useState<Status>("loading");
   const [err, setErr] = useState<string | null>(null);
+  const [saveName, setSaveName] = useState<string>("");
   const [romName, setRomName] = useState<string>("");
   const [role, setRole] = useState<Role | null>(null);
   const [roster, setRoster] = useState<RosterEntry[]>([]);
@@ -58,19 +62,19 @@ export function SessionPage() {
   const [controllerId, setControllerId] = useState<string | null>(null);
   const [connState, setConnState] = useState<"connecting" | "open" | "closed">("connecting");
   const [muted, setMuted] = useState<boolean>(true);
+  const [contributors, setContributors] = useState<Record<string, number>>({});
   const [shareToast, setShareToast] = useState<string | null>(null);
+  const [playerName, setPlayerNameState] = useState<string>(getPlayerName());
 
-  // Apply role changes to refs and to the emulator (audio + input gating).
+  // Reflect role into refs + emulator gating.
   useEffect(() => {
     roleRef.current = role;
     const core = coreRef.current;
     if (!core) return;
     if (role === "controller") {
-      // Controller plays audio (unless explicitly muted) and accepts input.
       core.setVolume(mutedRef.current ? 0 : 1);
       startSnapshotLoop();
     } else {
-      // Follower: muted by default (SPEC C7), no input emitted to server.
       core.setVolume(0);
       mutedRef.current = true;
       setMuted(true);
@@ -90,8 +94,6 @@ export function SessionPage() {
         const bytes = await core.captureSnapshot();
         if (!bytes) return;
         const frame = core.getFrame();
-        // Avoid sending duplicate snapshots if the core hasn't advanced
-        // (can happen briefly after a handoff while paused).
         if (frame === lastSnapshotFrameRef.current) return;
         lastSnapshotFrameRef.current = frame;
         net.send({
@@ -113,66 +115,33 @@ export function SessionPage() {
     }
   };
 
-  // Boot emulator + open WS once.
+  // The very first thing the WS does is `join`. We need a name before that.
   useEffect(() => {
-    if (!romId || !sessionId) {
-      setErr("Missing session id or ROM in URL.");
+    if (!saveId) {
+      setErr("Missing save id in URL.");
       setStatus("error");
       return;
     }
+    if (!playerName.trim()) {
+      setStatus("needs-name");
+      return;
+    }
+    joinNameRef.current = playerName.trim();
+    setStatus((prev) => (prev === "needs-name" ? "loading" : prev));
+
     let disposed = false;
 
-    (async () => {
-      try {
-        const roms = await listRoms();
-        const meta = roms.find((r) => r.id === romId);
-        if (!meta) throw new Error(`ROM ${romId} not in /api/roms`);
-        setRomName(meta.name);
+    netRef.current = connect({
+      url: wsUrl("/ws"),
+      onState: setConnState,
+      onMessage: (msg) => handleServerMessage(msg).catch((e) => console.error("ws msg", e)),
+      joinMessage: {
+        type: "join",
+        saveId,
+        name: joinNameRef.current,
+      },
+    });
 
-        const bytes = await fetchRom(romId);
-        const actualHash = await sha256Hex(bytes);
-        if (actualHash !== meta.hash) {
-          throw new Error(`ROM hash mismatch (expected ${meta.hash.slice(0, 8)}…, got ${actualHash.slice(0, 8)}…)`);
-        }
-
-        const canvas = canvasRef.current;
-        if (!canvas) throw new Error("canvas not mounted");
-        const core = await createMgba(canvas);
-        if (disposed) { core.dispose(); return; }
-        coreRef.current = core;
-        await core.loadRomBytes(romId, bytes);
-        core.module.addCoreCallbacks({
-          saveDataUpdatedCallback: () => {
-            try { core.module.FSSync?.(); } catch (e) { console.warn("FSSync failed:", e); }
-          },
-        });
-        core.setVolume(0); // Start muted until role is decided.
-        core.pause();
-        setStatus("needs-tap");
-
-        netRef.current = connect({
-          url: wsUrl("/ws"),
-          onState: setConnState,
-          onMessage: handleServerMessage,
-          joinMessage: {
-            type: "join",
-            sessionId,
-            name: initialName.trim() || "Anonymous",
-            romId,
-            romHash: meta.hash,
-          },
-        });
-      } catch (e: any) {
-        console.error("SessionPage init failed:", e);
-        setErr(e?.message ?? String(e));
-        setStatus("error");
-      }
-    })();
-
-    // Mobile cleanup: pagehide is the reliable signal on Android Chrome
-    // and iOS Safari (beforeunload is not). Send `leave` and release wake
-    // lock so the next-in-queue gets promoted without waiting for the
-    // heartbeat timeout.
     const onPageHide = () => {
       try { netRef.current?.close(); } catch { /* ignore */ }
       try { wakeRef.current?.release(); } catch { /* ignore */ }
@@ -188,16 +157,60 @@ export function SessionPage() {
       try { coreRef.current?.dispose(); } catch { /* ignore */ }
       coreRef.current = null;
       netRef.current = null;
+      coreBootedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [romId, sessionId]);
+  }, [saveId, playerName]);
+
+  // Welcome arrives → fetch ROM and boot mGBA (only the first time).
+  const ensureCoreBooted = async (welcome: {
+    romId: string;
+    romHash: string;
+    romName: string;
+    latestSnapshot: { data: string; frame: number } | null;
+  }) => {
+    if (coreBootedRef.current) return;
+    coreBootedRef.current = true;
+    setRomName(welcome.romName);
+
+    const roms = await listRoms();
+    const meta = roms.find((r) => r.id === welcome.romId);
+    if (!meta) throw new Error(`ROM ${welcome.romId} not in /api/roms`);
+    if (meta.hash !== welcome.romHash) {
+      throw new Error(
+        `ROM hash mismatch: server expects ${welcome.romHash.slice(0, 8)}…, got ${meta.hash.slice(0, 8)}…. ` +
+          `Replace ${welcome.romId} on the server, or contact the save's owner.`,
+      );
+    }
+    const bytes = await fetchRom(welcome.romId);
+    const actualHash = await sha256Hex(bytes);
+    if (actualHash !== welcome.romHash) {
+      throw new Error(`ROM byte hash mismatch (expected ${welcome.romHash.slice(0, 8)}…, got ${actualHash.slice(0, 8)}…).`);
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) throw new Error("canvas not mounted");
+    const core = await createMgba(canvas);
+    coreRef.current = core;
+    await core.loadRomBytes(welcome.romId, bytes);
+    core.module.addCoreCallbacks({
+      saveDataUpdatedCallback: () => {
+        try { core.module.FSSync?.(); } catch (e) { console.warn("FSSync failed:", e); }
+      },
+    });
+    core.setVolume(0);
+    core.pause();
+    setStatus("needs-tap");
+
+    if (welcome.latestSnapshot) {
+      pendingSnapshotRef.current = welcome.latestSnapshot;
+    }
+  };
 
   const applyServerSnapshot = async (b64: string, frame: number) => {
     const core = coreRef.current;
     if (!core) return;
     if (!runningRef.current) {
-      // Core is still paused (waiting for tap-to-start). Buffer the latest
-      // snapshot; we'll apply it once the user starts.
       pendingSnapshotRef.current = { data: b64, frame };
       return;
     }
@@ -217,9 +230,26 @@ export function SessionPage() {
         setRole(msg.role);
         setRoster(msg.roster);
         setControllerId(msg.controllerId);
-        if (msg.role === "follower" && msg.latestSnapshot) {
-          await applyServerSnapshot(msg.latestSnapshot.data, msg.latestSnapshot.frame);
+        setSaveName(msg.saveName);
+        setContributors(msg.contributors ?? {});
+        try {
+          await ensureCoreBooted({
+            romId: msg.romId,
+            romHash: msg.romHash,
+            romName: msg.romId.replace(/\.gba$/i, ""), // refined below
+            latestSnapshot: msg.latestSnapshot ? { data: msg.latestSnapshot.data, frame: msg.latestSnapshot.frame } : null,
+          });
+        } catch (e: any) {
+          setErr(e?.message ?? String(e));
+          setStatus("error");
         }
+        // Also fetch the human-readable rom name (welcome carries id only).
+        // Cheap: roms list is already cached by the browser.
+        try {
+          const roms = await listRoms();
+          const m = roms.find((r) => r.id === msg.romId);
+          if (m) setRomName(m.name);
+        } catch { /* non-fatal */ }
         break;
       }
       case "roster": {
@@ -240,16 +270,10 @@ export function SessionPage() {
         break;
       }
       case "becomeController": {
-        // Load the snapshot (if any) and switch to controller.
         if (msg.data) {
           await applyServerSnapshot(msg.data, msg.frame);
         }
-        // Role will also flip via the controllerChanged broadcast — but
-        // we eagerly flip here so audio/input/snapshot loop start without
-        // waiting for the second message.
         if (selfId) setRole("controller");
-        // Take a fresh snapshot immediately so all followers re-sync to
-        // the new controller's lifecycle (SPEC §11.4).
         const core = coreRef.current;
         const net = netRef.current;
         if (core && net?.isOpen()) {
@@ -271,8 +295,6 @@ export function SessionPage() {
         break;
       }
       case "input": {
-        // Follower-only: apply immediately. The next snapshot reconciles
-        // any drift. (See SPEC §12.4 mode chosen in DECISIONS.md.)
         const core = coreRef.current;
         if (!core) break;
         if (msg.pressed) core.pressButton(msg.button);
@@ -280,12 +302,16 @@ export function SessionPage() {
         break;
       }
       case "snapshot": {
-        // Follower-only: always reload (§12.4).
         await applyServerSnapshot(msg.data, msg.frame);
+        break;
+      }
+      case "contributors": {
+        setContributors(msg.contributors);
         break;
       }
       case "error": {
         setErr(`server: ${msg.code} — ${msg.message}`);
+        setStatus("error");
         break;
       }
     }
@@ -301,14 +327,11 @@ export function SessionPage() {
     core.resume();
     runningRef.current = true;
     setStatus("running");
-    // Apply any snapshot that arrived while we were waiting for the tap.
     if (pendingSnapshotRef.current) {
       const p = pendingSnapshotRef.current;
       pendingSnapshotRef.current = null;
       await applyServerSnapshot(p.data, p.frame);
     }
-    // If we're already the controller (joined into an empty session before
-    // anyone else), kick off the snapshot loop.
     if (roleRef.current === "controller") startSnapshotLoop();
   };
 
@@ -328,10 +351,8 @@ export function SessionPage() {
     coreRef.current?.setVolume(next ? 0 : 1);
   };
 
-  // Build the canonical session URL (without `name=` — that's per-user).
   const shareUrl = (() => {
     const u = new URL(window.location.href);
-    u.searchParams.delete("name");
     return u.toString();
   })();
 
@@ -341,47 +362,63 @@ export function SessionPage() {
   };
 
   const onShare = async () => {
-    // Prefer the native share sheet on mobile (Android Chrome + iOS Safari
-    // both support it from a user gesture). Fall back to clipboard.
     const nav: any = navigator;
     if (typeof nav.share === "function") {
       try {
         await nav.share({
-          title: `Watch-Together GBA — ${romName}`,
-          text: `Join my GBA session (${sessionId})`,
+          title: `${saveName} — Watch-Together GBA`,
+          text: `Join my GBA save "${saveName}"`,
           url: shareUrl,
         });
         return;
       } catch (e: any) {
-        // User cancelled the share sheet → don't fall through to clipboard.
         if (e?.name === "AbortError") return;
       }
     }
     try {
       await navigator.clipboard.writeText(shareUrl);
-      showToast("Session link copied to clipboard");
+      showToast("Save link copied to clipboard");
     } catch {
-      // Last resort: select the URL so the user can copy manually.
-      window.prompt("Copy this session link:", shareUrl);
+      window.prompt("Copy this save link:", shareUrl);
     }
   };
 
-  const onPress = (b: GbaButton) => {
-    const core = coreRef.current;
-    if (!core) return;
-    core.pressButton(b);
-    if (roleRef.current === "controller") {
-      netRef.current?.send({ type: "input", frame: core.getFrame(), button: b, pressed: true });
-    }
-  };
-  const onRelease = (b: GbaButton) => {
-    const core = coreRef.current;
-    if (!core) return;
-    core.releaseButton(b);
-    if (roleRef.current === "controller") {
-      netRef.current?.send({ type: "input", frame: core.getFrame(), button: b, pressed: false });
-    }
-  };
+  // ----- needs-name gate: render BEFORE booting WS so we can collect a name -----
+  if (status === "needs-name") {
+    return (
+      <div className="home" data-testid="needs-name-form">
+        <h1>Pick a name first</h1>
+        <p style={{ color: "var(--muted)" }}>
+          Your name is shown to other players and tracks how much you've
+          contributed to this save. It's saved on this device, so you only
+          need to enter it once.
+        </p>
+        <div className="field">
+          <label htmlFor="name">Your player name</label>
+          <input
+            id="name"
+            placeholder="e.g. Robin"
+            data-testid="name-input"
+            autoFocus
+            onChange={(e) => setPlayerNameState(e.target.value)}
+          />
+        </div>
+        <button
+          onClick={() => {
+            const trimmed = (document.getElementById("name") as HTMLInputElement | null)?.value?.trim() ?? "";
+            if (!trimmed) return;
+            setPlayerName(trimmed);
+            setPlayerNameState(trimmed);
+          }}
+          className="primary"
+          data-testid="name-submit"
+        >
+          Continue
+        </button>
+        <button onClick={() => navigate("/")} style={{ marginLeft: 8 }}>Back to home</button>
+      </div>
+    );
+  }
 
   if (status === "error") {
     return (
@@ -393,21 +430,23 @@ export function SessionPage() {
   }
 
   const isController = role === "controller";
+  const contributorEntries = Object.entries(contributors).sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="play-shell" data-status={status} data-role={role ?? "unknown"}>
       <div className="play-header">
         <button onClick={onBack}>← Back</button>
         <div className="role-indicator" data-testid="role-indicator">
-          {romName}
-          <span className="session-id-chip" style={{ marginLeft: 8 }} data-testid="session-id-chip">
-            #{sessionId}
+          <strong>{saveName || "…"}</strong>
+          <span style={{ color: "#888", marginLeft: 6 }}>{romName}</span>
+          <span className="save-id-chip" style={{ marginLeft: 8 }} data-testid="save-id-chip">
+            #{saveId}
           </span>
           {" · "}<span data-testid="role">{role ?? "joining…"}</span>
           <span style={{ color: "#888", marginLeft: 8 }}>· {connState}</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={onShare} className="share-btn" data-testid="share-btn" title="Copy or share the session URL">
+          <button onClick={onShare} className="share-btn" data-testid="share-btn" title="Copy or share the save URL">
             Share
           </button>
           <button onClick={toggleMute} data-testid="mute-toggle">{muted ? "🔇" : "🔊"}</button>
@@ -432,20 +471,37 @@ export function SessionPage() {
         />
       </div>
 
-      <Gamepad onPress={onPress} onRelease={onRelease} disabled={!isController} />
+      <Gamepad onPress={(b: GbaButton) => {
+        const c = coreRef.current; if (!c) return;
+        c.pressButton(b);
+        if (roleRef.current === "controller") netRef.current?.send({ type: "input", frame: c.getFrame(), button: b, pressed: true });
+      }} onRelease={(b: GbaButton) => {
+        const c = coreRef.current; if (!c) return;
+        c.releaseButton(b);
+        if (roleRef.current === "controller") netRef.current?.send({ type: "input", frame: c.getFrame(), button: b, pressed: false });
+      }} disabled={!isController} />
 
       {status === "needs-tap" && (
         <div className="start-overlay" data-testid="start-overlay">
-          <h1>{romName}</h1>
+          <h1>{saveName}</h1>
           <p>
-            Session <strong>{sessionId}</strong> · you are the {role ?? "…"}.
+            <span style={{ color: "var(--muted)" }}>{romName}</span> · you are the {role ?? "…"}.
           </p>
+          {contributorEntries.length > 0 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
+              {contributorEntries.map(([n, ms]) => (
+                <span key={n} className="contributor-chip">
+                  {n} <em>{formatMs(ms)}</em>
+                </span>
+              ))}
+            </div>
+          )}
           <p style={{ color: "var(--muted)" }}>
             Tap below to start. We need the tap to unlock audio and enter
             fullscreen on mobile.
           </p>
           <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-            <button onClick={onTapStart} data-testid="tap-to-start">Tap to start</button>
+            <button onClick={onTapStart} data-testid="tap-to-start" className="primary">Tap to start</button>
             <button
               onClick={onShare}
               data-testid="share-overlay"

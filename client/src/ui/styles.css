@@ -304,12 +304,12 @@ html, body, #root {
   font-size: 13px;
 }
 
-.home .session-list {
+.home .save-list {
   list-style: none;
   padding: 0;
   margin: 0 0 8px;
 }
-.home .session-list li {
+.home .save-list li {
   background: #161616;
   border: 1px solid #2a2a2a;
   border-radius: 6px;
@@ -319,19 +319,62 @@ html, body, #root {
   align-items: center;
   gap: 12px;
 }
-.home .session-list .session-main { flex: 1 1 auto; min-width: 0; }
-.home .session-list .session-title {
+.home .save-list li.save-live {
+  border-color: #2c8050;
+  background: linear-gradient(180deg, #16221c 0%, #161616 100%);
+}
+.home .save-list .save-main { flex: 1 1 auto; min-width: 0; }
+.home .save-list .save-title {
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-.home .session-list .session-meta {
+.home .save-list .save-meta {
   color: var(--muted);
   font-size: 12px;
   margin-top: 2px;
 }
+.home .save-list .save-contributors {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.contributor-chip {
+  font-size: 11px;
+  background: #1f1f1f;
+  border: 1px solid #2e2e2e;
+  border-radius: 10px;
+  padding: 2px 8px;
+  color: #cfcfcf;
+}
+.contributor-chip em {
+  color: var(--muted);
+  font-style: normal;
+  margin-left: 4px;
+}
+.save-rom-chip {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  background: #1a2733;
+  border: 1px solid #2e4456;
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: #b6c8d6;
+  font-weight: 400;
+}
+.live-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: #2c8050;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+.save-id-chip,
 .session-id-chip {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 11px;
@@ -342,14 +385,59 @@ html, body, #root {
   color: #cfcfcf;
   font-weight: 400;
 }
-.home .session-list button {
-  background: var(--accent);
-  color: white;
-  border: 0;
+.home .save-list button {
+  background: #2a2a2a;
+  color: var(--fg);
+  border: 1px solid #333;
   padding: 8px 14px;
   border-radius: 4px;
   cursor: pointer;
   flex-shrink: 0;
+}
+.home .save-list button.primary {
+  background: var(--accent);
+  color: white;
+  border-color: #2c8050;
+}
+.home .save-list button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* New-save form. */
+.new-save-form {
+  background: #141414;
+  border: 1px solid #232323;
+  border-radius: 6px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.new-save-form .field { margin-bottom: 0; }
+.new-save-form select {
+  background: #161616;
+  color: var(--fg);
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.new-save-form button {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.new-save-form button:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .new-save-form {
+    grid-template-columns: 1fr;
+  }
 }
 
 .home .rom-list button.primary {

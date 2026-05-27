@@ -1,145 +1,189 @@
-// Home screen — pick a ROM (Solo or Watch-Together), browse active sessions,
-// or paste a session URL/id to join.
+// Home screen — pick a save (in-progress or fresh), keyed to a mandatory
+// player name. All actions require a name; the name is persisted in
+// localStorage so users only enter it once.
 
-import { useEffect, useState } from "react";
-import { listRoms, listSessions, type RomMeta } from "../lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { createSave, listRoms, listSaves, type RomMeta } from "../lib/api";
 import { navigate } from "../lib/router";
-import type { SessionSummary } from "@gba/shared";
-
-function newSessionId(): string {
-  const alphabet = "23456789abcdefghjkmnpqrstuvwxyz";
-  let out = "";
-  const arr = new Uint8Array(8);
-  crypto.getRandomValues(arr);
-  for (let i = 0; i < arr.length; i++) out += alphabet[arr[i] % alphabet.length];
-  return out;
-}
-
-function relTime(ms: number): string {
-  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  return `${h}h ago`;
-}
+import { formatMs, formatRelTime, getPlayerName, setPlayerName } from "../lib/player";
+import type { SaveSummary } from "@gba/shared";
 
 export function HomePage() {
   const [roms, setRoms] = useState<RomMeta[] | null>(null);
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [saves, setSaves] = useState<SaveSummary[]>([]);
   const [err, setErr] = useState<string | null>(null);
-  const [name, setName] = useState<string>(() => localStorage.getItem("name") ?? "");
-  const [joinInput, setJoinInput] = useState<string>("");
+  const [name, setName] = useState<string>(getPlayerName);
+  const [newSaveName, setNewSaveName] = useState<string>("");
+  const [newSaveRomId, setNewSaveRomId] = useState<string>("");
+  const [creating, setCreating] = useState<boolean>(false);
 
   useEffect(() => {
-    listRoms().then(setRoms).catch((e) => setErr(e.message));
+    listRoms()
+      .then((r) => {
+        setRoms(r);
+        if (!newSaveRomId && r.length > 0) setNewSaveRomId(r[0].id);
+      })
+      .catch((e) => setErr(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Poll the session list every 3s while we're on the home page.
+  // Poll the saves list while we're on the home page.
   useEffect(() => {
     let alive = true;
     const tick = () => {
-      listSessions()
-        .then((s) => { if (alive) setSessions(s); })
-        .catch(() => { /* silent — server might be momentarily unreachable */ });
+      listSaves()
+        .then((s) => { if (alive) setSaves(s); })
+        .catch(() => { /* silent */ });
     };
     tick();
     const iv = window.setInterval(tick, 3000);
     return () => { alive = false; clearInterval(iv); };
   }, []);
 
-  const onPlay = (romId: string) => {
-    if (name.trim()) localStorage.setItem("name", name.trim());
-    const params = new URLSearchParams({ rom: romId });
-    if (name.trim()) params.set("name", name.trim());
-    navigate(`/play?${params.toString()}`);
+  // Keep the localStorage in sync as the user types — but only commit on
+  // blur or before navigation so we don't write on every keystroke.
+  const persistName = () => {
+    setPlayerName(name);
   };
 
-  const onStartSession = (romId: string) => {
-    if (name.trim()) localStorage.setItem("name", name.trim());
-    const sessionId = newSessionId();
-    const params = new URLSearchParams({ rom: romId });
-    if (name.trim()) params.set("name", name.trim());
-    navigate(`/s/${sessionId}?${params.toString()}`);
+  const trimmedName = name.trim();
+  const nameOk = trimmedName.length > 0;
+
+  const goToSave = (save: SaveSummary) => {
+    if (!nameOk) return;
+    setPlayerName(name);
+    navigate(`/s/${save.id}`);
   };
 
-  const goToSession = (s: SessionSummary) => {
-    if (name.trim()) localStorage.setItem("name", name.trim());
-    const params = new URLSearchParams({ rom: s.romId });
-    if (name.trim()) params.set("name", name.trim());
-    navigate(`/s/${s.id}?${params.toString()}`);
-  };
-
-  const onJoinFromInput = () => {
-    if (name.trim()) localStorage.setItem("name", name.trim());
-    let target = joinInput.trim();
-    if (!target) return;
-    if (target.startsWith("http")) {
-      try {
-        const u = new URL(target);
-        target = u.pathname + u.search;
-      } catch { /* leave as-is */ }
+  const onCreateSave = async () => {
+    setErr(null);
+    if (!nameOk) {
+      setErr("Enter your player name first.");
+      return;
     }
-    if (!target.startsWith("/s/")) target = `/s/${target.replace(/^\/+/, "")}`;
-    navigate(target);
+    if (!newSaveName.trim()) {
+      setErr("Give the new save a name (e.g. 'Family Emerald run').");
+      return;
+    }
+    if (!newSaveRomId) {
+      setErr("Pick a ROM.");
+      return;
+    }
+    setPlayerName(name);
+    setCreating(true);
+    try {
+      const save = await createSave({ name: newSaveName.trim(), romId: newSaveRomId });
+      setNewSaveName("");
+      navigate(`/s/${save.id}`);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setCreating(false);
+    }
   };
+
+  const orderedSaves = useMemo(() => {
+    return [...saves].sort((a, b) => {
+      // Live saves first, then by updatedAt desc.
+      const aLive = a.live ? 1 : 0;
+      const bLive = b.live ? 1 : 0;
+      if (aLive !== bLive) return bLive - aLive;
+      return b.updatedAt - a.updatedAt;
+    });
+  }, [saves]);
 
   return (
     <div className="home">
       <h1>Watch-Together GBA</h1>
       <p style={{ color: "var(--muted)" }}>
-        Pick a ROM and pick a mode. Sessions you create are visible to anyone
-        else who can reach this server — share the URL when you want company.
+        Saves are shared. Pick one to keep playing — or watch someone else
+        play, then take over when they hand off. Closing your tab leaves the
+        game in the save where you (and others) left it.
       </p>
 
-      {err && <div className="error">{err}</div>}
+      {err && <div className="error" data-testid="home-error">{err}</div>}
 
       <div className="field">
-        <label htmlFor="name">Your name (shown in the roster)</label>
+        <label htmlFor="name">Your player name (required, remembered on this device)</label>
         <input
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          onBlur={persistName}
           placeholder="e.g. Robin"
           data-testid="name-input"
+          autoComplete="off"
         />
+        {!nameOk && (
+          <div className="hint" style={{ marginTop: 6 }}>
+            We track who contributed to each save by name. Enter yours to play.
+          </div>
+        )}
       </div>
 
-      {/* Active sessions — top-of-fold because joining one is the primary
-          way to play together. */}
       <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 24 }}>
-        Active sessions {sessions.length > 0 ? `(${sessions.length})` : ""}
+        Saves {orderedSaves.length > 0 ? `(${orderedSaves.length})` : ""}
       </h2>
-      {sessions.length === 0 ? (
-        <div className="hint" data-testid="empty-sessions">
-          No active sessions. Start one below to play together — anyone with
-          a link (or this page) can join.
+
+      {orderedSaves.length === 0 ? (
+        <div className="hint" data-testid="empty-saves">
+          No saves yet. Create one below and start a run — anyone with access
+          to this server can join it.
         </div>
       ) : (
-        <ul className="session-list" data-testid="session-list">
-          {sessions.map((s) => (
-            <li key={s.id} data-session-id={s.id}>
-              <div className="session-main">
-                <div className="session-title">
-                  {s.romName}
-                  <span className="session-id-chip">#{s.id}</span>
+        <ul className="save-list" data-testid="save-list">
+          {orderedSaves.map((s) => {
+            const contributors = Object.entries(s.contributors)
+              .sort((a, b) => b[1] - a[1]);
+            return (
+              <li key={s.id} data-save-id={s.id} className={s.live ? "save-live" : ""}>
+                <div className="save-main">
+                  <div className="save-title">
+                    {s.name}
+                    <span className="save-rom-chip">{s.romName}</span>
+                    {s.live && (
+                      <span className="live-pill" title={`${s.live.participantCount} in session`}>
+                        ● LIVE
+                      </span>
+                    )}
+                  </div>
+                  <div className="save-meta">
+                    {s.live ? (
+                      <>
+                        {s.live.controllerName ? `${s.live.controllerName} is playing` : "Waiting for controller"}
+                        {" · "}
+                        {s.live.participantCount} {s.live.participantCount === 1 ? "person" : "people"} in session
+                      </>
+                    ) : (
+                      <>Last played {formatRelTime(s.updatedAt)}</>
+                    )}
+                  </div>
+                  {contributors.length > 0 && (
+                    <div className="save-contributors">
+                      {contributors.map(([n, ms]) => (
+                        <span key={n} className="contributor-chip" title={`${n}: ${formatMs(ms)}`}>
+                          {n} <em>{formatMs(ms)}</em>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div className="session-meta">
-                  {s.controllerName ? `${s.controllerName} is playing` : "Waiting for controller"}
-                  {" · "}
-                  {s.participantCount} {s.participantCount === 1 ? "person" : "people"} in session
-                  {" · started "}
-                  {relTime(s.createdAt)}
-                </div>
-              </div>
-              <button onClick={() => goToSession(s)} data-testid="join-session">Join</button>
-            </li>
-          ))}
+                <button
+                  onClick={() => goToSave(s)}
+                  disabled={!nameOk}
+                  data-testid="open-save"
+                  className="primary"
+                >
+                  {s.live ? "Join" : "Continue"}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {/* ROM picker — second now, since "join existing" is the common path. */}
-      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 32 }}>Start a new game</h2>
+      {/* New-save form. */}
+      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 32 }}>Start a new save</h2>
       {!roms && !err && <div>Loading ROMs…</div>}
       {roms && roms.length === 0 && (
         <div className="error">
@@ -148,46 +192,39 @@ export function HomePage() {
         </div>
       )}
       {roms && roms.length > 0 && (
-        <ul className="rom-list">
-          {roms.map((r) => (
-            <li key={r.id}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{r.name}</div>
-                <div className="rom-meta">
-                  {(r.size / 1024).toFixed(1)} KB · sha256:{r.hash.slice(0, 12)}…
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => onPlay(r.id)} title="Play locally with no session">Solo</button>
-                <button
-                  onClick={() => onStartSession(r.id)}
-                  title="Create a session URL and start a multi-player game"
-                  className="primary"
-                  data-testid={`start-session-${r.id}`}
-                >
-                  Watch-Together
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="new-save-form">
+          <div className="field">
+            <label>Save name</label>
+            <input
+              value={newSaveName}
+              onChange={(e) => setNewSaveName(e.target.value)}
+              placeholder="e.g. Family Emerald run"
+              data-testid="new-save-name"
+              autoComplete="off"
+            />
+          </div>
+          <div className="field">
+            <label>ROM</label>
+            <select
+              value={newSaveRomId}
+              onChange={(e) => setNewSaveRomId(e.target.value)}
+              data-testid="new-save-rom"
+            >
+              {roms.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={onCreateSave}
+            disabled={creating || !nameOk || !newSaveName.trim() || !newSaveRomId}
+            data-testid="create-save"
+            className="primary"
+          >
+            {creating ? "Creating…" : "Create save"}
+          </button>
+        </div>
       )}
-
-      {/* Manual join via URL or id — useful when sharing across networks
-          where the server URL itself isn't obvious. */}
-      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 32 }}>
-        Join by link or id
-      </h2>
-      <div className="join-by-input">
-        <input
-          value={joinInput}
-          onChange={(e) => setJoinInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") onJoinFromInput(); }}
-          placeholder="https://…/s/abc12345  or just  abc12345"
-          data-testid="join-input"
-        />
-        <button onClick={onJoinFromInput}>Join</button>
-      </div>
 
       <p style={{ marginTop: 32, fontSize: 12, color: "var(--muted)" }}>
         Need diagnostics? See the{" "}

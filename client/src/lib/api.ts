@@ -1,6 +1,6 @@
-// Tiny client for the dev/prod /api/roms and /api/sessions endpoints.
+// Tiny client for /api/roms and /api/saves.
 
-import type { SessionSummary } from "@gba/shared";
+import type { SaveSummary, CreateSaveResponse } from "@gba/shared";
 
 export interface RomMeta {
   id: string;
@@ -23,9 +23,24 @@ export async function fetchRom(id: string): Promise<Uint8Array> {
   return new Uint8Array(ab as ArrayBuffer);
 }
 
-export async function listSessions(): Promise<SessionSummary[]> {
-  const res = await fetch("/api/sessions");
-  if (!res.ok) throw new Error(`listSessions: ${res.status}`);
+export async function listSaves(): Promise<SaveSummary[]> {
+  const res = await fetch("/api/saves");
+  if (!res.ok) throw new Error(`listSaves: ${res.status}`);
   const j = await res.json();
-  return j.sessions;
+  return j.saves;
+}
+
+export async function createSave(input: { name: string; romId: string }): Promise<SaveSummary> {
+  const res = await fetch("/api/saves", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
+    throw new Error(`createSave: ${res.status}${detail ? ` — ${detail}` : ""}`);
+  }
+  const j: CreateSaveResponse = await res.json();
+  return j.save;
 }

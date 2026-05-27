@@ -1,5 +1,5 @@
 // Shared types between client and server. Single source of truth for the
-// WebSocket protocol (SPEC §9).
+// WebSocket protocol (SPEC §9) and the HTTP /api shape.
 
 export type GbaButton =
   | "A"
@@ -44,12 +44,15 @@ export interface SnapshotMeta {
 }
 
 // ---- Client → Server ----
+//
+// JoinMsg now references a persistent SAVE — not an ad-hoc session id.
+// The save carries the romId/romHash, so the client does not declare them
+// on join; the server tells the client in `welcome` and the client
+// hash-checks its local ROM bytes before booting.
 export interface JoinMsg {
   type: "join";
-  sessionId: string;
+  saveId: string;
   name: string;
-  romId: string;
-  romHash: string;
 }
 
 export interface ClientInputMsg {
@@ -90,8 +93,12 @@ export interface WelcomeMsg {
   controllerId: string | null;
   roster: RosterEntry[];
   latestSnapshot: SnapshotMeta | null;
+  // Save context (what game, who has played).
+  saveId: string;
+  saveName: string;
   romId: string;
   romHash: string;
+  contributors: Record<string, number>; // playerName → totalControllerMs
 }
 
 export interface RosterMsg {
@@ -132,6 +139,14 @@ export interface HeartbeatAckMsg {
   type: "heartbeatAck";
 }
 
+// Live contributors update — push when a controller hands over or a snapshot
+// flushes accumulated time, so the home-page roster + in-game header can
+// reflect the latest minutes-per-player without polling.
+export interface ContributorsMsg {
+  type: "contributors";
+  contributors: Record<string, number>;
+}
+
 export interface ErrorMsg {
   type: "error";
   code: string;
@@ -146,16 +161,37 @@ export type ServerMsg =
   | BecomeControllerMsg
   | ControllerChangedMsg
   | HeartbeatAckMsg
+  | ContributorsMsg
   | ErrorMsg;
 
-// ---- Session browser (HTTP /api/sessions) ----
-export interface SessionSummary {
+// ---- HTTP /api/saves ----
+//
+// A "save" is the persistent thing: it owns a ROM, a save state on disk, and
+// a contributor ledger. The "session" is the in-memory wrapper that exists
+// only while at least one player is connected to that save.
+export interface SaveSummary {
   id: string;
+  name: string;
   romId: string;
+  romHash: string;
   romName: string;
-  participantCount: number;
-  controllerName: string | null;
   createdAt: number;
+  updatedAt: number;
+  contributors: Record<string, number>; // playerName → totalControllerMs
+  // Live-session info; null when no one is currently in the save.
+  live: {
+    participantCount: number;
+    controllerName: string | null;
+  } | null;
+}
+
+export interface CreateSaveRequest {
+  name: string;
+  romId: string;
+}
+
+export interface CreateSaveResponse {
+  save: SaveSummary;
 }
 
 // ---- Tunables (SPEC §17) ----

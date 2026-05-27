@@ -63,6 +63,10 @@ COPY --chown=node:node --from=builder /app/server/src ./server/src
 # with. Real ROMs are added via a bind mount over /app/server/roms.
 COPY --chown=node:node --from=builder /app/server/roms ./server/roms
 
+# Persistent save data lives under /app/server/data. Pre-create it so the
+# directory exists when bind-mounted with an empty host directory.
+RUN mkdir -p /app/server/data/saves && chown -R node:node /app/server/data
+
 # Vite-built client; /client/public/* (incl. the vendored mGBA WASM core)
 # is copied verbatim into /client/dist/ during the build.
 COPY --chown=node:node --from=builder /app/client/package.json ./client/

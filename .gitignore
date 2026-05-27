@@ -19,3 +19,7 @@ coverage/
 /client/dist/
 /server/dist/
 .cache/
+
+# Persistent save data — created at runtime, never committed.
+/server/data/
+/data/
