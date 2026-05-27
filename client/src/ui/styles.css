@@ -858,24 +858,38 @@ input:focus, select:focus, button:focus-visible {
 .play-shell[data-layout="overlay"] .play-canvas {
   height: 100%; width: auto; max-width: 100%; aspect-ratio: 240 / 160;
 }
+/* No grouping rectangle behind the buttons — they float individually so
+   the GBA screen stays as unobstructed as possible. Each button keeps a
+   subtle dark fill + thin light border so it's still legible against any
+   in-game colour. */
 .play-shell[data-layout="overlay"] .pad-panel {
   position: absolute;
-  bottom: 16px;
-  padding: 10px;
-  background: rgba(20, 20, 28, 0.55);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 18px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  gap: 10px;
+  bottom: 14px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  gap: 14px;
 }
-.play-shell[data-layout="overlay"] .pad-panel-left  { left: 16px; }
-.play-shell[data-layout="overlay"] .pad-panel-right { right: 16px; }
-.play-shell[data-layout="overlay"] .pad-panel .pad-btn {
-  background: rgba(40, 40, 56, 0.75);
+.play-shell[data-layout="overlay"] .pad-panel-left  { left: 14px; }
+.play-shell[data-layout="overlay"] .pad-panel-right { right: 14px; }
+.play-shell[data-layout="overlay"] .pad-panel .pad-btn,
+.play-shell[data-layout="overlay"] .pad-panel .pad-dpad {
+  background: rgba(15, 15, 25, 0.30);
+  border-color: rgba(255, 255, 255, 0.20);
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
-.play-shell[data-layout="overlay"] .pad-panel .pad-btn.pad-pressed {
-  background: rgba(46, 168, 102, 0.85);
+.play-shell[data-layout="overlay"] .pad-panel .pad-dpad .dpad-center {
+  background: rgba(255, 255, 255, 0.10);
+}
+.play-shell[data-layout="overlay"] .pad-panel .pad-btn.pad-pressed,
+.play-shell[data-layout="overlay"] .pad-panel .pad-pressed {
+  background: rgba(46, 168, 102, 0.75);
+  border-color: rgba(46, 168, 102, 0.95);
+  color: white;
 }
 
 /* ===================================================================
