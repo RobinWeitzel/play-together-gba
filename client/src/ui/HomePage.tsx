@@ -16,6 +16,7 @@ import {
   deleteSave,
   listRoms,
   listSaves,
+  renameSave,
   unarchiveSave,
   type RomMeta,
 } from "../lib/api";
@@ -145,6 +146,23 @@ export function HomePage() {
     setBusyId(save.id);
     try {
       const updated = await unarchiveSave(save.id);
+      setSaves((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onRename = async (save: SaveSummary) => {
+    setOpenMenuId(null);
+    const raw = window.prompt(`Rename "${save.name}":`, save.name);
+    if (raw === null) return;
+    const next = raw.trim().slice(0, 64);
+    if (!next || next === save.name) return;
+    setBusyId(save.id);
+    try {
+      const updated = await renameSave(save.id, next);
       setSaves((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
     } catch (e: any) {
       setErr(e?.message ?? String(e));
@@ -295,6 +313,7 @@ export function HomePage() {
                 onOpenMenu={() => setOpenMenuId(openMenuId === s.id ? null : s.id)}
                 onOpenSave={() => goToSave(s)}
                 onArchive={() => onArchive(s)}
+                onRename={() => onRename(s)}
               />
             ))}
           </ul>
@@ -376,6 +395,7 @@ export function HomePage() {
                     menuOpen={openMenuId === s.id}
                     onOpenMenu={() => setOpenMenuId(openMenuId === s.id ? null : s.id)}
                     onOpenSave={() => goToSave(s)}
+                    onRename={() => onRename(s)}
                     onUnarchive={() => onUnarchive(s)}
                     onDelete={() => onDelete(s)}
                   />
@@ -404,6 +424,7 @@ interface SaveCardProps {
   menuOpen: boolean;
   onOpenMenu: () => void;
   onOpenSave: () => void;
+  onRename?: () => void;
   onArchive?: () => void;
   onUnarchive?: () => void;
   onDelete?: () => void;
@@ -416,6 +437,7 @@ function SaveCard({
   menuOpen,
   onOpenMenu,
   onOpenSave,
+  onRename,
   onArchive,
   onUnarchive,
   onDelete,
@@ -485,6 +507,16 @@ function SaveCard({
           >⋯</button>
           {menuOpen && (
             <div className="save-menu" role="menu">
+              {onRename && (
+                <button
+                  className="save-menu-item"
+                  onClick={onRename}
+                  data-testid="action-rename"
+                  disabled={busy}
+                >
+                  Rename…
+                </button>
+              )}
               {onArchive && (
                 <button
                   className="save-menu-item"

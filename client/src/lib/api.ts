@@ -67,3 +67,17 @@ export async function deleteSave(id: string): Promise<void> {
     throw new Error(`deleteSave: ${res.status}${detail ? ` — ${detail}` : ""}`);
   }
 }
+
+export async function renameSave(id: string, name: string): Promise<SaveSummary> {
+  const res = await fetch(`/api/saves/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
+    throw new Error(`renameSave: ${res.status}${detail ? ` — ${detail}` : ""}`);
+  }
+  return (await res.json()).save;
+}

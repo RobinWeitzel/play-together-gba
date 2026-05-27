@@ -131,6 +131,15 @@ export class SaveStore {
     return meta;
   }
 
+  async rename(saveId: string, name: string): Promise<SaveMeta | undefined> {
+    const meta = this.metas.get(saveId);
+    if (!meta) return undefined;
+    if (meta.name === name) return meta;
+    meta.name = name;
+    await this.writeMeta(meta);
+    return meta;
+  }
+
   async readSnapshot(saveId: string): Promise<Uint8Array | null> {
     try {
       const buf = await fs.readFile(path.join(this.dir, saveId, "snapshot.bin"));
