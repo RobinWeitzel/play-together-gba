@@ -69,7 +69,21 @@ Notes:
 - M2 wires the roles but does NOT actually sync inputs/snapshots (that's M3). The Node server already accepts and relays `input` / `snapshot` messages, dropping them from non-controllers; the client just doesn't emit them yet.
 
 ## Milestone 3 — Input + snapshot sync
-- Status: pending
+- Status: **DONE** (2026-05-27)
+
+Implemented:
+- Controller emits frame-tagged `input` messages on every press/release in addition to the local emulator call.
+- Controller's snapshot loop fires every `SNAPSHOT_INTERVAL_MS` (default 1500ms; SPEC §17). It calls `core.captureSnapshot()`, base64-encodes, and sends a `snapshot` message. De-duplicated on `frame` so a paused core doesn't spam identical bytes.
+- Server stores the latest snapshot in `Session.latestSnapshot` and relays both inputs and snapshots to followers.
+- Follower applies received inputs immediately (no frame queue — §12.4 mode means the next snapshot reconciles any drift) and reloads on every snapshot via `MgbaCore.restoreSnapshot` (handles the ~5-frame priming requirement).
+- Snapshots arriving before the user has tapped-to-start are buffered (`pendingSnapshotRef`) and applied on resume.
+- `becomeController` handler: loads the snapshot, eagerly flips role to "controller" (without waiting for the follow-up `controllerChanged` broadcast), and immediately emits a fresh snapshot so all other followers re-sync to the new controller's lifecycle (SPEC §11.4).
+- Followers default-muted (SPEC C7); mute toggle in the header (🔇/🔊).
+
+Verified end-to-end with the Playwright two-tab test:
+- TabA (controller) and TabB (follower) join `/s/m3test?rom=test-arm.gba`. Both show the same ROM output (jsmolka test ROM).
+- TabB's gamepad is visually disabled (follower).
+- Closing TabA: TabB becomes controller via `becomeController`, gamepad re-enables, emulator continues running with the same on-screen state. Roster drops to 1.
 
 ## Milestone 4 — Robustness, mobile polish, prod build
 - Status: pending
