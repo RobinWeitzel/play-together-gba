@@ -1,12 +1,12 @@
-// Home / Join screen — pick a ROM (and later, a session). For M1 this just
-// launches the local emulator. M2+ adds session id and roster.
+// Home screen — pick a ROM (Solo or Watch-Together), browse active sessions,
+// or paste a session URL/id to join.
 
 import { useEffect, useState } from "react";
-import { listRoms, type RomMeta } from "../lib/api";
+import { listRoms, listSessions, type RomMeta } from "../lib/api";
 import { navigate } from "../lib/router";
+import type { SessionSummary } from "@gba/shared";
 
 function newSessionId(): string {
-  // Short URL-safe random id. 8 chars from a 32-char alphabet.
   const alphabet = "23456789abcdefghjkmnpqrstuvwxyz";
   let out = "";
   const arr = new Uint8Array(8);
@@ -15,15 +15,37 @@ function newSessionId(): string {
   return out;
 }
 
+function relTime(ms: number): string {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  return `${h}h ago`;
+}
+
 export function HomePage() {
   const [roms, setRoms] = useState<RomMeta[] | null>(null);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [name, setName] = useState<string>(() => localStorage.getItem("name") ?? "");
+  const [joinInput, setJoinInput] = useState<string>("");
 
   useEffect(() => {
-    listRoms()
-      .then(setRoms)
-      .catch((e) => setErr(e.message));
+    listRoms().then(setRoms).catch((e) => setErr(e.message));
+  }, []);
+
+  // Poll the session list every 3s while we're on the home page.
+  useEffect(() => {
+    let alive = true;
+    const tick = () => {
+      listSessions()
+        .then((s) => { if (alive) setSessions(s); })
+        .catch(() => { /* silent — server might be momentarily unreachable */ });
+    };
+    tick();
+    const iv = window.setInterval(tick, 3000);
+    return () => { alive = false; clearInterval(iv); };
   }, []);
 
   const onPlay = (romId: string) => {
@@ -41,12 +63,22 @@ export function HomePage() {
     navigate(`/s/${sessionId}?${params.toString()}`);
   };
 
-  const onJoinSession = (sessionInput: string) => {
+  const goToSession = (s: SessionSummary) => {
     if (name.trim()) localStorage.setItem("name", name.trim());
-    let target = sessionInput.trim();
+    const params = new URLSearchParams({ rom: s.romId });
+    if (name.trim()) params.set("name", name.trim());
+    navigate(`/s/${s.id}?${params.toString()}`);
+  };
+
+  const onJoinFromInput = () => {
+    if (name.trim()) localStorage.setItem("name", name.trim());
+    let target = joinInput.trim();
     if (!target) return;
     if (target.startsWith("http")) {
-      try { target = new URL(target).pathname + new URL(target).search; } catch { /* leave */ }
+      try {
+        const u = new URL(target);
+        target = u.pathname + u.search;
+      } catch { /* leave as-is */ }
     }
     if (!target.startsWith("/s/")) target = `/s/${target.replace(/^\/+/, "")}`;
     navigate(target);
@@ -56,26 +88,63 @@ export function HomePage() {
     <div className="home">
       <h1>Watch-Together GBA</h1>
       <p style={{ color: "var(--muted)" }}>
-        Pick a ROM to play locally. Once Milestone 2 lands, you'll be able to share a session URL with others.
+        Pick a ROM and pick a mode. Sessions you create are visible to anyone
+        else who can reach this server — share the URL when you want company.
       </p>
 
       {err && <div className="error">{err}</div>}
 
       <div className="field">
-        <label htmlFor="name">Your name (optional)</label>
+        <label htmlFor="name">Your name (shown in the roster)</label>
         <input
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Robin"
+          data-testid="name-input"
         />
       </div>
 
-      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 24 }}>ROMs</h2>
-      {!roms && !err && <div>Loading…</div>}
+      {/* Active sessions — top-of-fold because joining one is the primary
+          way to play together. */}
+      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 24 }}>
+        Active sessions {sessions.length > 0 ? `(${sessions.length})` : ""}
+      </h2>
+      {sessions.length === 0 ? (
+        <div className="hint" data-testid="empty-sessions">
+          No active sessions. Start one below to play together — anyone with
+          a link (or this page) can join.
+        </div>
+      ) : (
+        <ul className="session-list" data-testid="session-list">
+          {sessions.map((s) => (
+            <li key={s.id} data-session-id={s.id}>
+              <div className="session-main">
+                <div className="session-title">
+                  {s.romName}
+                  <span className="session-id-chip">#{s.id}</span>
+                </div>
+                <div className="session-meta">
+                  {s.controllerName ? `${s.controllerName} is playing` : "Waiting for controller"}
+                  {" · "}
+                  {s.participantCount} {s.participantCount === 1 ? "person" : "people"} in session
+                  {" · started "}
+                  {relTime(s.createdAt)}
+                </div>
+              </div>
+              <button onClick={() => goToSession(s)} data-testid="join-session">Join</button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* ROM picker — second now, since "join existing" is the common path. */}
+      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 32 }}>Start a new game</h2>
+      {!roms && !err && <div>Loading ROMs…</div>}
       {roms && roms.length === 0 && (
         <div className="error">
-          No ROMs found. Drop a `.gba` file into <code>/server/roms/</code> and reload.
+          No ROMs found. Drop a <code>.gba</code> file into the mounted{" "}
+          <code>/app/server/roms</code> volume and restart the container.
         </div>
       )}
       {roms && roms.length > 0 && (
@@ -90,27 +159,37 @@ export function HomePage() {
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button onClick={() => onPlay(r.id)} title="Play locally with no session">Solo</button>
-                <button onClick={() => onStartSession(r.id)} title="Create a session URL to share">Watch-Together</button>
+                <button
+                  onClick={() => onStartSession(r.id)}
+                  title="Create a session URL and start a multi-player game"
+                  className="primary"
+                  data-testid={`start-session-${r.id}`}
+                >
+                  Watch-Together
+                </button>
               </div>
             </li>
           ))}
         </ul>
       )}
 
-      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 24 }}>Join existing session</h2>
-      <div className="field">
-        <label htmlFor="join-input">Paste a session URL or id</label>
+      {/* Manual join via URL or id — useful when sharing across networks
+          where the server URL itself isn't obvious. */}
+      <h2 style={{ fontSize: 16, color: "var(--muted)", marginTop: 32 }}>
+        Join by link or id
+      </h2>
+      <div className="join-by-input">
         <input
-          id="join-input"
-          placeholder="e.g. /s/abc12345 or just abc12345"
+          value={joinInput}
+          onChange={(e) => setJoinInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") onJoinFromInput(); }}
+          placeholder="https://…/s/abc12345  or just  abc12345"
           data-testid="join-input"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onJoinSession((e.target as HTMLInputElement).value);
-          }}
         />
+        <button onClick={onJoinFromInput}>Join</button>
       </div>
 
-      <p style={{ marginTop: 24, fontSize: 12, color: "var(--muted)" }}>
+      <p style={{ marginTop: 32, fontSize: 12, color: "var(--muted)" }}>
         Need diagnostics? See the{" "}
         <a href="/spike" style={{ color: "var(--accent)" }}>determinism spike</a>.
       </p>

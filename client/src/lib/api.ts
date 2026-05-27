@@ -1,4 +1,6 @@
-// Tiny client for the dev/prod /api/roms endpoint.
+// Tiny client for the dev/prod /api/roms and /api/sessions endpoints.
+
+import type { SessionSummary } from "@gba/shared";
 
 export interface RomMeta {
   id: string;
@@ -17,5 +19,13 @@ export async function listRoms(): Promise<RomMeta[]> {
 export async function fetchRom(id: string): Promise<Uint8Array> {
   const res = await fetch(`/api/roms/${encodeURIComponent(id)}`);
   if (!res.ok) throw new Error(`fetchRom(${id}): ${res.status}`);
-  return new Uint8Array(await res.arrayBuffer());
+  const ab = await res.arrayBuffer();
+  return new Uint8Array(ab as ArrayBuffer);
+}
+
+export async function listSessions(): Promise<SessionSummary[]> {
+  const res = await fetch("/api/sessions");
+  if (!res.ok) throw new Error(`listSessions: ${res.status}`);
+  const j = await res.json();
+  return j.sessions;
 }

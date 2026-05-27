@@ -58,6 +58,7 @@ export function SessionPage() {
   const [controllerId, setControllerId] = useState<string | null>(null);
   const [connState, setConnState] = useState<"connecting" | "open" | "closed">("connecting");
   const [muted, setMuted] = useState<boolean>(true);
+  const [shareToast, setShareToast] = useState<string | null>(null);
 
   // Apply role changes to refs and to the emulator (audio + input gating).
   useEffect(() => {
@@ -327,6 +328,44 @@ export function SessionPage() {
     coreRef.current?.setVolume(next ? 0 : 1);
   };
 
+  // Build the canonical session URL (without `name=` — that's per-user).
+  const shareUrl = (() => {
+    const u = new URL(window.location.href);
+    u.searchParams.delete("name");
+    return u.toString();
+  })();
+
+  const showToast = (msg: string) => {
+    setShareToast(msg);
+    window.setTimeout(() => setShareToast(null), 2500);
+  };
+
+  const onShare = async () => {
+    // Prefer the native share sheet on mobile (Android Chrome + iOS Safari
+    // both support it from a user gesture). Fall back to clipboard.
+    const nav: any = navigator;
+    if (typeof nav.share === "function") {
+      try {
+        await nav.share({
+          title: `Watch-Together GBA — ${romName}`,
+          text: `Join my GBA session (${sessionId})`,
+          url: shareUrl,
+        });
+        return;
+      } catch (e: any) {
+        // User cancelled the share sheet → don't fall through to clipboard.
+        if (e?.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      showToast("Session link copied to clipboard");
+    } catch {
+      // Last resort: select the URL so the user can copy manually.
+      window.prompt("Copy this session link:", shareUrl);
+    }
+  };
+
   const onPress = (b: GbaButton) => {
     const core = coreRef.current;
     if (!core) return;
@@ -360,10 +399,17 @@ export function SessionPage() {
       <div className="play-header">
         <button onClick={onBack}>← Back</button>
         <div className="role-indicator" data-testid="role-indicator">
-          {romName} · <span data-testid="role">{role ?? "joining…"}</span>
+          {romName}
+          <span className="session-id-chip" style={{ marginLeft: 8 }} data-testid="session-id-chip">
+            #{sessionId}
+          </span>
+          {" · "}<span data-testid="role">{role ?? "joining…"}</span>
           <span style={{ color: "#888", marginLeft: 8 }}>· {connState}</span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button onClick={onShare} className="share-btn" data-testid="share-btn" title="Copy or share the session URL">
+            Share
+          </button>
           <button onClick={toggleMute} data-testid="mute-toggle">{muted ? "🔇" : "🔊"}</button>
           <div style={{ fontSize: 11, color: "#888" }} data-testid="roster-summary">
             {roster.length} {roster.length === 1 ? "player" : "players"}
@@ -392,15 +438,26 @@ export function SessionPage() {
         <div className="start-overlay" data-testid="start-overlay">
           <h1>{romName}</h1>
           <p>
-            You are joining session <strong>{sessionId}</strong> as a {role ?? "…"}.
+            Session <strong>{sessionId}</strong> · you are the {role ?? "…"}.
           </p>
           <p style={{ color: "var(--muted)" }}>
             Tap below to start. We need the tap to unlock audio and enter
             fullscreen on mobile.
           </p>
-          <button onClick={onTapStart} data-testid="tap-to-start">Tap to start</button>
+          <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+            <button onClick={onTapStart} data-testid="tap-to-start">Tap to start</button>
+            <button
+              onClick={onShare}
+              data-testid="share-overlay"
+              style={{ background: "#222", color: "var(--fg)", border: "1px solid #333" }}
+            >
+              Share link
+            </button>
+          </div>
         </div>
       )}
+
+      {shareToast && <div className="share-toast" data-testid="share-toast">{shareToast}</div>}
     </div>
   );
 }

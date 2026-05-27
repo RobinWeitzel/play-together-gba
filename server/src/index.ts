@@ -20,6 +20,7 @@ import {
   type ControllerChangedMsg,
   type BecomeControllerMsg,
   type ErrorMsg,
+  type SessionSummary,
 } from "@gba/shared";
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -53,6 +54,26 @@ app.addHook("onSend", async (_req, reply) => {
 
 // ---- /api/roms ----
 app.get("/api/roms", async () => ({ roms: listRomsImpl() }));
+
+// ---- /api/sessions ----
+// Read-only list of active sessions, used by the home page session browser.
+app.get("/api/sessions", async () => {
+  const roms = listRomsImpl();
+  const romName = (romId: string) => roms.find((r) => r.id === romId)?.name ?? romId;
+  const sessions: SessionSummary[] = store.allSessions().map((s) => {
+    const controllerId = store.controllerId(s);
+    const controllerName = controllerId ? s.participants.get(controllerId)?.name ?? null : null;
+    return {
+      id: s.id,
+      romId: s.romId,
+      romName: romName(s.romId),
+      participantCount: s.participants.size,
+      controllerName,
+      createdAt: s.createdAt,
+    };
+  });
+  return { sessions };
+});
 
 app.get<{ Params: { id: string } }>("/api/roms/:id", async (req, reply) => {
   const id = req.params.id;

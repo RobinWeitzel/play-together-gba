@@ -174,20 +174,26 @@ html, body, #root {
 
 .gamepad-disabled { opacity: 0.35; pointer-events: none; }
 
-/* Landscape: canvas centered, controls flanking. */
+/* Landscape: keep header (slim) on top so Share + role + mute remain
+   reachable, then canvas centered with controls flanking via flex-direction
+   on a sub-row. */
 @media (orientation: landscape) {
   .play-shell {
-    flex-direction: row;
+    flex-direction: column;
   }
   .play-header {
-    display: none;
+    padding: 4px 10px;
+    font-size: 12px;
   }
+  .play-header button {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  /* Canvas + gamepad share a horizontal row. */
   .play-canvas-wrap {
-    order: 2;
+    flex: 1 1 auto;
+    min-height: 0;
   }
-  /* Left half = D-pad + shoulders, right half = face + start/select.
-     We split the gamepad into two stripes via flex; the existing single
-     .gamepad keeps its layout for portrait. */
 }
 
 /* Tap-to-start overlay. */
@@ -286,4 +292,95 @@ html, body, #root {
   border-radius: 4px;
   margin-bottom: 12px;
   font-size: 14px;
+}
+
+.hint {
+  background: #141a18;
+  border: 1px dashed #2c4a3a;
+  color: var(--muted);
+  padding: 12px 14px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.home .session-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.home .session-list li {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.home .session-list .session-main { flex: 1 1 auto; min-width: 0; }
+.home .session-list .session-title {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.home .session-list .session-meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.session-id-chip {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  background: #222;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: #cfcfcf;
+  font-weight: 400;
+}
+.home .session-list button {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.home .rom-list button.primary {
+  background: var(--accent);
+  color: white;
+}
+
+.join-by-input {
+  display: flex;
+  gap: 8px;
+}
+.join-by-input input { flex: 1 1 auto; min-width: 0; background: #161616; color: var(--fg); border: 1px solid #2a2a2a; border-radius: 4px; padding: 8px 10px; font-size: 14px; }
+.join-by-input button { background: var(--accent); color: white; border: 0; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+
+/* Share button in the play header. */
+.play-header .share-btn {
+  background: var(--accent);
+  border-color: #2c8050;
+  color: white;
+}
+.share-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #cfcfcf;
+  border: 1px solid #333;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }

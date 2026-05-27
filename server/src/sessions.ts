@@ -17,6 +17,7 @@ export interface Session {
   id: string;
   romId: string;
   romHash: string;
+  createdAt: number;
   participants: Map<string, Participant>;
   controllerQueue: string[]; // FIFO of connIds; head = current controller
   latestSnapshot?: SnapshotMeta & { receivedAt: number };
@@ -34,6 +35,7 @@ export class SessionStore {
         id,
         romId,
         romHash,
+        createdAt: Date.now(),
         participants: new Map(),
         controllerQueue: [],
       };

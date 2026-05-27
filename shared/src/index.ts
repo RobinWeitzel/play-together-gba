@@ -148,6 +148,16 @@ export type ServerMsg =
   | HeartbeatAckMsg
   | ErrorMsg;
 
+// ---- Session browser (HTTP /api/sessions) ----
+export interface SessionSummary {
+  id: string;
+  romId: string;
+  romName: string;
+  participantCount: number;
+  controllerName: string | null;
+  createdAt: number;
+}
+
 // ---- Tunables (SPEC §17) ----
 export const DEFAULTS = {
   SNAPSHOT_INTERVAL_MS: 1500,
