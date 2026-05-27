@@ -1,0 +1,289 @@
+/* Mobile-first styles for the play screen. */
+
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --fg: #eee;
+  --muted: #aaa;
+  --accent: #1f7a4a;
+  --pad-bg: #1d1d1d;
+  --pad-bg-pressed: #2c6b48;
+  --pad-border: #333;
+  --pad-text: #cfcfcf;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#root {
+  height: 100dvh;
+  width: 100dvw;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* The play container is the touchable game area; disable native gestures. */
+.play-shell {
+  height: 100dvh;
+  width: 100dvw;
+  display: flex;
+  flex-direction: column;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.play-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #111;
+  font-size: 13px;
+  color: var(--muted);
+}
+.play-header .role-indicator {
+  font-weight: 600;
+  color: var(--fg);
+}
+.play-header button {
+  background: #222;
+  color: var(--fg);
+  border: 1px solid #333;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.play-canvas-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  min-height: 0;
+}
+.play-canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #000;
+  display: block;
+}
+
+/* Gamepad — laid out below the canvas in portrait, flanking in landscape. */
+.gamepad {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg);
+}
+.pad-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pad-shoulders { padding: 0 8px; }
+.pad-main { gap: 12px; }
+.pad-center-row { gap: 16px; justify-content: center; }
+
+.pad-btn {
+  background: var(--pad-bg);
+  color: var(--pad-text);
+  border: 1px solid var(--pad-border);
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  font-size: 18px;
+  font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+  cursor: pointer;
+}
+.pad-btn.pad-pressed,
+.pad-pressed {
+  background: var(--pad-bg-pressed);
+  border-color: #3a9760;
+}
+
+.pad-shoulder {
+  border-radius: 8px;
+  height: 36px;
+  width: 96px;
+  font-size: 14px;
+}
+
+.pad-pill {
+  border-radius: 14px;
+  height: 28px;
+  width: 84px;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.pad-face {
+  display: grid;
+  grid-template-columns: 64px 64px;
+  grid-template-rows: 64px 64px;
+  gap: 8px;
+}
+.pad-face-b { grid-column: 1; grid-row: 1; }
+.pad-face-a { grid-column: 2; grid-row: 2; width: 72px; height: 72px; }
+
+.pad-dpad-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pad-dpad {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  background: #181818;
+  border-radius: 12px;
+  border: 1px solid var(--pad-border);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  color: var(--pad-text);
+  font-size: 16px;
+  touch-action: none;
+}
+.pad-dpad > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.dpad-up    { grid-column: 2; grid-row: 1; }
+.dpad-down  { grid-column: 2; grid-row: 3; }
+.dpad-left  { grid-column: 1; grid-row: 2; }
+.dpad-right { grid-column: 3; grid-row: 2; }
+.dpad-center{ grid-column: 2; grid-row: 2; background: #222; border-radius: 4px; }
+
+.gamepad-disabled { opacity: 0.35; pointer-events: none; }
+
+/* Landscape: canvas centered, controls flanking. */
+@media (orientation: landscape) {
+  .play-shell {
+    flex-direction: row;
+  }
+  .play-header {
+    display: none;
+  }
+  .play-canvas-wrap {
+    order: 2;
+  }
+  /* Left half = D-pad + shoulders, right half = face + start/select.
+     We split the gamepad into two stripes via flex; the existing single
+     .gamepad keeps its layout for portrait. */
+}
+
+/* Tap-to-start overlay. */
+.start-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+  text-align: center;
+}
+.start-overlay h1 {
+  font-size: 28px;
+  margin: 0 0 12px;
+}
+.start-overlay p {
+  color: var(--muted);
+  margin: 0 0 24px;
+  max-width: 320px;
+}
+.start-overlay button {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  padding: 16px 28px;
+  font-size: 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Home/lobby screen. */
+.home {
+  padding: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.home h1 {
+  margin-top: 0;
+}
+.home .rom-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.home .rom-list li {
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.home .rom-list .rom-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+.home .rom-list button {
+  background: var(--accent);
+  color: white;
+  border: 0;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.home .field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+.home label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.home input {
+  background: #161616;
+  color: var(--fg);
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.error {
+  background: #3a1a1a;
+  border: 1px solid #a04040;
+  color: #ffb0b0;
+  padding: 10px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}

@@ -8,7 +8,7 @@ build/
 .vite/
 coverage/
 .playwright-mcp/
-spike-state.png
+*.png
 
 # ROMs (user-supplied real ROMs go here, not committed). Test ROM is whitelisted below.
 /server/roms/*

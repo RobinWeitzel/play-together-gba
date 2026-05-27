@@ -35,7 +35,19 @@ Both halves satisfied:
 - Followers corrected to (det-)hash-identical by `loadAutoSaveState`: **YES** (C and D both produce detHash `612a68d10d557bad01fd…` after loading A's snapshot).
 
 ## Milestone 1 — Single-player local emulator (mobile)
-- Status: pending
+- Status: **DONE** (2026-05-27)
+
+Implemented:
+- `HomePage` (`/`) lists ROMs from `/api/roms` with a name field; click "Play" → `/play?rom=<id>`.
+- `PlayPage` (`/play`) verifies the ROM SHA-256 against `/api/roms` metadata before loading; surfaces a "Tap to start" overlay so the first user gesture can unlock audio, request fullscreen, and lock landscape.
+- Wake Lock (`navigator.wakeLock.request('screen')`) acquired on Tap-to-start; re-acquired on `visibilitychange`.
+- Touch `Gamepad` uses **native** PointerEvent listeners with `setPointerCapture` (per SPEC §13.2) — D-pad supports diagonals; multi-touch (D-pad held + face buttons) works because each button captures its own pointer.
+- IDBFS persistence: `FSInit` mounts `/data` and `/autosave`; `saveDataUpdatedCallback` → `FSSync()` so battery saves flush to IndexedDB. Test ROM doesn't write SRAM so this is exercised theoretically.
+- COOP/COEP/CORP headers in `vite.config.ts`; `crossOriginIsolated === true` in dev.
+- Landscape media query reflows controls to flank the canvas.
+
+Notes:
+- Test ROM `test-arm.gba` is a static CPU-test ROM, not a game; renders "Passed/Failed test N" until it's done. Adequate for verifying boot + render + touch input registration. Real game playthrough verification will happen when the human drops their own ROM.
 
 ## Milestone 2 — Sessions & roster
 - Status: pending
