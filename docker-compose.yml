@@ -1,0 +1,31 @@
+# Local / Unraid-friendly compose definition for the watch-together GBA
+# emulator. After `docker compose up -d`, browse to http://localhost:8080.
+#
+# To run with a published image instead of the local Dockerfile, comment out
+# `build: .` and uncomment `image:` below.
+
+services:
+  gba:
+    container_name: watch-together-gba
+    build: .
+    # image: ghcr.io/robinweitzel/remote-gba-emulator:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Defaults match SPEC.md §17. Override here if needed.
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      # LOG_LEVEL: "info"  # one of: trace|debug|info|warn|error
+    volumes:
+      # Mount your own ROMs here. Anything ending in `.gba` is auto-loaded
+      # at server startup. The image already ships a public-domain test
+      # ROM; if you want it to remain available alongside your own, copy
+      # it once into the host directory.
+      - ./roms:/app/server/roms:rw
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/roms"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

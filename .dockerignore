@@ -1,0 +1,29 @@
+# Anything regenerated or environment-specific.
+.git
+.gitignore
+.github
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Node + build artefacts.
+**/node_modules
+**/dist
+**/build
+**/.vite
+**/coverage
+**/*.tsbuildinfo
+
+# Local scratch / editor / OS junk.
+.DS_Store
+.env
+.env.local
+*.log
+.playwright-mcp
+*.png
+
+# Documentation that doesn't need to live inside the container image.
+SPEC.md
+PROGRESS.md
+DECISIONS.md
+QUESTIONS.md

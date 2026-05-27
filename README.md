@@ -56,6 +56,54 @@ npm start           # serves the built client + WS hub on $PORT (default 8080)
 
 That's it — one process serves both the static client and the WebSocket hub. Visit `http://localhost:8080/` to confirm.
 
+### Docker (recommended for Unraid / any container host)
+
+A multi-arch image is published to GHCR by the GitHub Actions workflow in [`.github/workflows/docker.yml`](.github/workflows/docker.yml):
+
+- `ghcr.io/robinweitzel/remote-gba-emulator:latest` — head of `main`
+- `ghcr.io/robinweitzel/remote-gba-emulator:vX.Y.Z` — tagged releases
+- `ghcr.io/robinweitzel/remote-gba-emulator:sha-<short>` — every commit
+
+The image bundles the test ROM. To use your own, bind-mount a host directory onto `/app/server/roms`.
+
+#### Quickstart (any Docker host)
+
+```bash
+docker run -d \
+  --name watch-together-gba \
+  -p 8080:8080 \
+  -v /path/to/your/roms:/app/server/roms \
+  --restart unless-stopped \
+  ghcr.io/robinweitzel/remote-gba-emulator:latest
+```
+
+Visit `http://<host>:8080`. The server hashes every `.gba` in the mounted roms directory at startup; if you add new ROMs, restart the container.
+
+`docker-compose.yml` is provided as a more convenient starting point:
+
+```bash
+docker compose up -d
+# or, with the published image:
+sed -i 's|build: .|image: ghcr.io/robinweitzel/remote-gba-emulator:latest|' docker-compose.yml
+docker compose up -d
+```
+
+#### Unraid
+
+1. **Community Apps → Docker → Add Container.** Fill in:
+   - **Repository:** `ghcr.io/robinweitzel/remote-gba-emulator:latest`
+   - **Network Type:** Bridge (default)
+   - **Port:** Container `8080` → Host `8080` (or whatever you prefer; map it through your reverse proxy after)
+   - **Path:** Container `/app/server/roms` → Host `/mnt/user/appdata/watch-together-gba/roms` (Read/Write)
+   - **Restart Policy:** unless-stopped
+2. Apply. The first pull takes ~2 minutes (image is ~250 MB).
+3. Copy your ROMs into `/mnt/user/appdata/watch-together-gba/roms/` and either restart the container or visit `http://<unraid-ip>:8080` once and reload (the server hashes ROMs on boot only).
+
+**GHCR visibility:** the image is published to your GitHub account's container registry. By default GitHub makes packages **private**, which means Unraid won't be able to pull without auth. Either:
+
+- **Make it public:** GitHub → your profile → Packages → `remote-gba-emulator` → Package settings → Change visibility → Public. (Recommended for a private self-hosted app on a private network — the *image* is just the code, no secrets.)
+- **Or supply credentials:** create a personal access token with `read:packages` and run `docker login ghcr.io -u <username> -p <token>` on your Unraid host once.
+
 ### Behind Cloudflare Tunnel
 
 1. **Run `cloudflared`** pointing the Tunnel at the local prod server:
