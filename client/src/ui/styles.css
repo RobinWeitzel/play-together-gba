@@ -114,29 +114,31 @@ input:focus, select:focus, button:focus-visible {
 .home-inner {
   max-width: 760px;
   margin: 0 auto;
-  padding: 24px 16px 80px;
+  padding: 20px 14px 80px;
 }
 @media (min-width: 640px) {
   .home-inner { padding: 36px 24px 96px; }
 }
 
-/* Hero */
+/* Hero — keep it on one row on phones; title shrinks before it wraps. */
 .home-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 .home-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
+  flex: 1 1 auto;
 }
+.home-brand > div { min-width: 0; }
 .home-brand .brand-mark {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   background: linear-gradient(135deg, var(--indigo) 0%, var(--accent-hi) 100%);
   display: flex;
@@ -148,14 +150,25 @@ input:focus, select:focus, button:focus-visible {
 }
 .home-brand h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: clamp(17px, 5.4vw, 22px);
   line-height: 1.15;
   letter-spacing: -0.01em;
+  /* Allow the title to break on the existing hyphen ("Play-Together GBA")
+     but never inside a word — keeps it tidy on tight viewports. */
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 .home-brand .tagline {
   margin: 2px 0 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (min-width: 640px) {
+  .home-brand .brand-mark { width: 40px; height: 40px; }
+  .home-brand .tagline { font-size: 13px; white-space: normal; }
 }
 
 .player-pill {
@@ -164,14 +177,28 @@ input:focus, select:focus, button:focus-visible {
   gap: 8px;
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
-  padding: 4px 10px 4px 4px;
+  padding: 3px 6px 3px 3px;
   border-radius: var(--radius-pill);
   font-size: 13px;
   color: var(--fg);
   cursor: pointer;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+.player-pill > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .player-pill:hover { background: var(--bg-elev-3); }
-.player-pill .change { color: var(--muted); font-size: 11px; }
+.player-pill .change { color: var(--muted); font-size: 11px; flex-shrink: 0; }
+@media (max-width: 480px) {
+  /* On phones, just the avatar + name; the "change" hint can disappear
+     to free up horizontal space for the brand title. */
+  .player-pill .change { display: none; }
+  .player-pill { padding: 3px 10px 3px 3px; }
+}
 
 /* How-it-works strip (only shown to first-time users below the hero) */
 .how-it-works {
@@ -284,7 +311,11 @@ input:focus, select:focus, button:focus-visible {
   color: var(--muted-soft);
 }
 
-/* Save cards */
+/* Save cards
+ *
+ * Phone: vertical card → main info on top, action row in a footer.
+ * ≥600 px: side-by-side, button right of the main column.
+ */
 .save-list {
   list-style: none;
   padding: 0;
@@ -296,11 +327,19 @@ input:focus, select:focus, button:focus-visible {
   background: var(--bg-elev-1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 14px;
   display: flex;
-  gap: 14px;
-  align-items: stretch;
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s ease;
+}
+@media (min-width: 600px) {
+  .save-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+  }
 }
 .save-card:hover { border-color: var(--border-strong); }
 .save-card.live {
@@ -382,16 +421,25 @@ input:focus, select:focus, button:focus-visible {
 }
 
 .save-card .open-btn {
-  align-self: stretch;
   background: var(--bg-elev-3);
   color: var(--fg);
   border: 1px solid var(--border-strong);
-  padding: 0 18px;
+  padding: 10px 16px;
   border-radius: var(--radius);
   font-size: 14px;
   font-weight: 600;
-  flex-shrink: 0;
-  min-width: 88px;
+  min-height: 40px;
+  /* Phone: action row footer → grow to fill the row. */
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (min-width: 600px) {
+  .save-card .open-btn {
+    flex: 0 0 auto;
+    min-width: 110px;
+  }
 }
 .save-card.live .open-btn {
   background: var(--accent-hi);
@@ -491,18 +539,30 @@ input:focus, select:focus, button:focus-visible {
   gap: 14px;
 }
 
-/* Save-card secondary actions (kebab menu) */
+/* Save-card secondary actions (kebab menu).
+ * Phone: footer row that spans the card. ≥600 px: inline next to main. */
 .save-card-actions {
   display: flex;
-  align-items: stretch;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
 }
-.save-menu-wrap { position: relative; display: flex; }
+@media (min-width: 600px) {
+  .save-card-actions {
+    border-top: 0;
+    padding-top: 0;
+    align-self: center;
+    flex-shrink: 0;
+  }
+}
+.save-menu-wrap { position: relative; display: flex; flex-shrink: 0; }
 .save-menu-btn {
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   color: var(--muted);
-  width: 36px;
+  width: 40px;
+  min-height: 40px;
   border-radius: var(--radius);
   font-size: 18px;
   line-height: 1;
