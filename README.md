@@ -132,7 +132,7 @@ You can have as many parallel saves as you want — one per game, one per kid, o
 
 ## Adding it to your phone's home screen
 
-There's a tiny PWA manifest, no service worker, no offline caching (intentional — caching would risk users getting stale builds).
+There's a tiny PWA manifest plus a deliberately empty pass-through service worker. The service worker exists only because Android Chrome refuses to install a site as a real app without one — it caches nothing, so users always get the latest server build.
 
 - **Android Chrome:** the menu shows "Install app" or "Add to Home Screen".
 - **iOS Safari:** Share → Add to Home Screen.

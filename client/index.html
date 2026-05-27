@@ -7,8 +7,9 @@
 
     <title>Play-Together GBA</title>
 
-    <!-- PWA manifest (intentionally minimal — no service worker, no offline
-         caching, so users always get the latest server build). -->
+    <!-- PWA manifest. A pass-through service worker (sw.js, registered in
+         main.tsx) exists only so Android Chrome's installability check
+         passes — it does no caching, so users always get the latest build. -->
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0c0c14" />
 
