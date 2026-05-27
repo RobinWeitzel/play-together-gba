@@ -8,6 +8,8 @@ import { sha256Hex } from "../lib/hash";
 import { acquireWakeLock } from "../lib/wake";
 import { Gamepad } from "./Gamepad";
 import { navigate, useRoute } from "../lib/router";
+import { useControlLayout } from "../lib/settings";
+import { SettingsMenu } from "./SettingsMenu";
 
 type Status = "loading" | "needs-tap" | "running" | "error";
 
@@ -21,6 +23,7 @@ export function PlayPage() {
   const [status, setStatus] = useState<Status>("loading");
   const [err, setErr] = useState<string | null>(null);
   const [romName, setRomName] = useState<string>("");
+  const { layout, pref: layoutPref, setPref: setLayoutPref } = useControlLayout();
 
   // Boot the core + load the ROM once we have a canvas.
   useEffect(() => {
@@ -125,25 +128,20 @@ export function PlayPage() {
   }
 
   return (
-    <div className="play-shell" data-status={status}>
+    <div className="play-shell" data-status={status} data-layout={layout}>
       <div className="play-header">
         <button onClick={onBack}>← Back</button>
         <div className="role-indicator">{romName || "Loading…"}</div>
-        <div style={{ width: 80 }} />
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <SettingsMenu pref={layoutPref} effective={layout} onChange={setLayoutPref} />
+        </div>
       </div>
       <div className="play-canvas-wrap">
-        {/* GBA native is 240×160. Browser scales it via CSS. */}
         <canvas
           ref={canvasRef}
           width={240}
           height={160}
           className="play-canvas"
-          style={{
-            width: "min(100vw, calc(100dvh * 240 / 160))",
-            height: "auto",
-            aspectRatio: "240 / 160",
-            maxHeight: "100%",
-          }}
         />
       </div>
       <Gamepad onPress={onPress} onRelease={onRelease} />

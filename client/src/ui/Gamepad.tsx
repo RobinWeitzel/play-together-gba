@@ -2,16 +2,10 @@
 // synthetic events) on the button DOM nodes, with setPointerCapture for
 // reliable multi-touch (D-pad + face buttons simultaneously).
 //
-// Layout:
-//   - Left thumb:  D-pad with 8-direction support (diagonals when two adjacent
-//     directional zones are pressed).
-//   - Right thumb: B (top-left) and A (bottom-right, larger).
-//   - Top corners: L (left), R (right).
-//   - Bottom center: Start, Select.
-//
-// Each press calls `onPress(button)` immediately; release calls `onRelease`.
-// React does not see the pointer events, only the (re-render-irrelevant)
-// pressed-state classnames.
+// Buttons are split into two panels — left (L, D-pad, Select) and right
+// (R, B/A, Start). CSS on the parent .play-shell positions the panels;
+// see styles.css `[data-layout="..."]` blocks. The component does not
+// care which layout is active.
 
 import { useEffect, useRef } from "react";
 import type { GbaButton } from "@gba/shared";
@@ -23,8 +17,6 @@ interface Props {
   disabled?: boolean;
 }
 
-// Attach native pointer handlers that call onPress/onRelease and track the
-// captured pointer so dragging off the button still releases on lift.
 function attachButton(
   el: HTMLElement,
   button: GbaButton,
@@ -60,8 +52,6 @@ function attachButton(
   };
 }
 
-// D-pad attaches a single pointer to the D-pad area; the active direction is
-// derived from where inside the pad the pointer is. Supports diagonals.
 function attachDpad(
   el: HTMLElement,
   onPress: (b: GbaButton) => void,
@@ -76,15 +66,10 @@ function attachDpad(
     const cy = r.top + r.height / 2;
     const dx = clientX - cx;
     const dy = clientY - cy;
-    // Deadzone in the center.
     const deadzone = Math.min(r.width, r.height) * 0.18;
     const want = new Set<GbaButton>();
     if (Math.hypot(dx, dy) > deadzone) {
-      // 8-way: dominant axis OR both if within ~22.5° of diagonal.
-      const angle = Math.atan2(dy, dx); // -PI..PI; 0 = +x (right)
-      // Map angle to one or two directions.
-      // 8 sectors of PI/4 each, edges include both adjacent dirs.
-      const a = angle;
+      const a = Math.atan2(dy, dx);
       const right = a > -3 * Math.PI / 8 && a < 3 * Math.PI / 8;
       const left = a > 5 * Math.PI / 8 || a < -5 * Math.PI / 8;
       const down = a > Math.PI / 8 && a < 7 * Math.PI / 8;
@@ -94,14 +79,12 @@ function attachDpad(
       if (down) want.add("Down");
       if (up) want.add("Up");
     }
-    // Release no-longer-pressed
     for (const b of pressed) {
       if (!want.has(b)) {
         pressed.delete(b);
         onRelease(b);
       }
     }
-    // Press newly added
     for (const b of want) {
       if (!pressed.has(b)) {
         pressed.add(b);
@@ -167,31 +150,30 @@ export function Gamepad({ onPress, onRelease, disabled }: Props) {
     return () => { for (const o of offs) o(); };
   }, [onPress, onRelease, disabled]);
 
+  const disabledCls = disabled ? " pad-disabled" : "";
+
   return (
-    <div className={`gamepad${disabled ? " gamepad-disabled" : ""}`} aria-hidden={disabled}>
-      <div className="pad-row pad-shoulders">
+    <>
+      <div className={`pad-panel pad-panel-left${disabledCls}`} aria-hidden={disabled}>
         <button ref={lRef} className="pad-btn pad-shoulder">L</button>
-        <button ref={rRef} className="pad-btn pad-shoulder">R</button>
-      </div>
-      <div className="pad-row pad-main">
-        <div className="pad-dpad-wrap">
-          <div ref={dpadRef} className="pad-dpad" aria-label="D-pad">
-            <div className="dpad-up">▲</div>
-            <div className="dpad-left">◀</div>
-            <div className="dpad-right">▶</div>
-            <div className="dpad-down">▼</div>
-            <div className="dpad-center" />
-          </div>
+        <div ref={dpadRef} className="pad-dpad" aria-label="D-pad">
+          <div className="dpad-up">▲</div>
+          <div className="dpad-left">◀</div>
+          <div className="dpad-right">▶</div>
+          <div className="dpad-down">▼</div>
+          <div className="dpad-center" />
         </div>
+        <button ref={selectRef} className="pad-btn pad-pill">SELECT</button>
+      </div>
+
+      <div className={`pad-panel pad-panel-right${disabledCls}`} aria-hidden={disabled}>
+        <button ref={rRef} className="pad-btn pad-shoulder">R</button>
         <div className="pad-face">
           <button ref={bRef} className="pad-btn pad-face-b">B</button>
           <button ref={aRef} className="pad-btn pad-face-a">A</button>
         </div>
-      </div>
-      <div className="pad-row pad-center-row">
-        <button ref={selectRef} className="pad-btn pad-pill">SELECT</button>
         <button ref={startRef} className="pad-btn pad-pill">START</button>
       </div>
-    </div>
+    </>
   );
 }

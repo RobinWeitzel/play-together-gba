@@ -21,6 +21,8 @@ import { navigate, useRoute } from "../lib/router";
 import { connect, wsUrl, type NetHandle } from "../net/ws";
 import { bytesToBase64, base64ToBytes } from "../lib/b64";
 import { formatMs, getPlayerName, setPlayerName } from "../lib/player";
+import { useControlLayout } from "../lib/settings";
+import { SettingsMenu } from "./SettingsMenu";
 import {
   DEFAULTS,
   type Role,
@@ -65,6 +67,7 @@ export function SessionPage() {
   const [contributors, setContributors] = useState<Record<string, number>>({});
   const [shareToast, setShareToast] = useState<string | null>(null);
   const [playerName, setPlayerNameState] = useState<string>(getPlayerName());
+  const { layout, pref: layoutPref, setPref: setLayoutPref } = useControlLayout();
 
   // Reflect role into refs + emulator gating.
   useEffect(() => {
@@ -433,7 +436,12 @@ export function SessionPage() {
   const contributorEntries = Object.entries(contributors).sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className="play-shell" data-status={status} data-role={role ?? "unknown"}>
+    <div
+      className="play-shell"
+      data-status={status}
+      data-role={role ?? "unknown"}
+      data-layout={layout}
+    >
       <div className="play-header">
         <button onClick={onBack}>← Back</button>
         <div className="role-indicator" data-testid="role-indicator">
@@ -449,7 +457,10 @@ export function SessionPage() {
           <button onClick={onShare} className="share-btn" data-testid="share-btn" title="Copy or share the save URL">
             Share
           </button>
-          <button onClick={toggleMute} data-testid="mute-toggle">{muted ? "🔇" : "🔊"}</button>
+          <button onClick={toggleMute} data-testid="mute-toggle" title={muted ? "Unmute" : "Mute"}>
+            {muted ? "🔇" : "🔊"}
+          </button>
+          <SettingsMenu pref={layoutPref} effective={layout} onChange={setLayoutPref} />
           <div style={{ fontSize: 11, color: "#888" }} data-testid="roster-summary">
             {roster.length} {roster.length === 1 ? "player" : "players"}
           </div>
@@ -462,12 +473,6 @@ export function SessionPage() {
           width={240}
           height={160}
           className="play-canvas"
-          style={{
-            width: "min(100vw, calc(100dvh * 240 / 160))",
-            height: "auto",
-            aspectRatio: "240 / 160",
-            maxHeight: "100%",
-          }}
         />
       </div>
 
