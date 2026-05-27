@@ -356,6 +356,43 @@ async function handleMessage(aux: SocketAux, msg: ClientMsg) {
       await handleLeave(aux);
       return;
     }
+    case "handover": {
+      const s = aux.saveId ? sessions.get(aux.saveId) : null;
+      if (!s) return;
+      const result = sessions.handover(s, aux.connId, msg.toConnId);
+      if (!result.ok) {
+        if (result.reason === "not_controller") {
+          // Silently ignore — protects against stale UI sending a handover
+          // after the role already flipped elsewhere.
+          return;
+        }
+        sendError(aux.connId, result.reason ?? "handover_failed", "handover failed");
+        return;
+      }
+      const sid = aux.saveId!;
+      // Credit the leaving controller for their stint.
+      if (result.leavingControllerContribution) {
+        const updated = await saves.addContribution(
+          sid,
+          result.leavingControllerContribution.playerName,
+          result.leavingControllerContribution.deltaMs,
+        );
+        if (updated) broadcast(sid, contributorsMsg(updated));
+      }
+      // Tell the new controller to take over (snapshot + multiplier).
+      const newControllerId = result.newControllerId!;
+      const snap = s.latestSnapshot;
+      const bcMsg: BecomeControllerMsg = snap
+        ? { type: "becomeController", frame: snap.frame, data: snap.data, compressed: snap.compressed, rawSize: snap.rawSize, multiplier: s.currentMultiplier }
+        : { type: "becomeController", frame: 0, data: "", compressed: false, rawSize: 0, multiplier: s.currentMultiplier };
+      send(newControllerId, bcMsg);
+      // Broadcast role flip + updated roster.
+      const cc: ControllerChangedMsg = { type: "controllerChanged", controllerId: newControllerId };
+      broadcast(sid, cc);
+      broadcast(sid, rosterMsg(sid));
+      app.log.info({ saveId: sid, from: aux.connId, to: newControllerId }, "handover");
+      return;
+    }
   }
 }
 

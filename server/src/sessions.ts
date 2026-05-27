@@ -121,6 +121,56 @@ export class SessionStore {
     return { wasController, newControllerId, sessionNowEmpty, leavingControllerContribution: leavingContribution };
   }
 
+  // Explicit handover from the current controller to a specific watcher.
+  // Flushes the leaving controller's wall-time and moves the target to
+  // the head of the queue. The old controller becomes position 1 so they
+  // naturally regain controls if the new controller leaves.
+  handover(session: Session, fromConnId: string, toConnId: string): {
+    ok: boolean;
+    reason?: "not_controller" | "not_in_session" | "same_person";
+    leavingControllerContribution: ContributionDelta | null;
+    newControllerId: string | null;
+  } {
+    if (session.controllerQueue[0] !== fromConnId) {
+      return { ok: false, reason: "not_controller", leavingControllerContribution: null, newControllerId: null };
+    }
+    if (!session.participants.has(toConnId)) {
+      return { ok: false, reason: "not_in_session", leavingControllerContribution: null, newControllerId: null };
+    }
+    if (fromConnId === toConnId) {
+      return { ok: false, reason: "same_person", leavingControllerContribution: null, newControllerId: null };
+    }
+
+    const leaving = session.participants.get(fromConnId)!;
+    const delta = Date.now() - session.controllerSince;
+    const leavingContribution: ContributionDelta = {
+      playerName: leaving.name,
+      deltaMs: Math.max(0, delta),
+    };
+
+    // Move target to head; leave the rest in place. The old controller
+    // ends up at position 1 (right after the new head).
+    const targetIdx = session.controllerQueue.indexOf(toConnId);
+    if (targetIdx > 0) session.controllerQueue.splice(targetIdx, 1);
+    // Remove old head and insert target at head, old head right after.
+    session.controllerQueue.shift();
+    session.controllerQueue.unshift(toConnId);
+    session.controllerQueue.splice(1, 0, fromConnId);
+
+    // Refresh roles on every participant.
+    const newController = session.controllerQueue[0];
+    for (const [id, p] of session.participants) {
+      p.role = id === newController ? "controller" : "follower";
+    }
+    session.controllerSince = Date.now();
+
+    return {
+      ok: true,
+      leavingControllerContribution: leavingContribution,
+      newControllerId: newController,
+    };
+  }
+
   setSnapshot(session: Session, snap: SnapshotMeta) {
     session.latestSnapshot = { ...snap, receivedAt: Date.now() };
   }

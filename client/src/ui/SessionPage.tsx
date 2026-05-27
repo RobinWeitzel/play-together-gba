@@ -89,6 +89,8 @@ export function SessionPage() {
   const [playerName, setPlayerNameState] = useState<string>(getPlayerName());
   // Visible speed multiplier (controller can change; followers see read-only).
   const [multiplier, setMultiplier] = useState<number>(1);
+  // Handover popover (controller-only).
+  const [handoverOpen, setHandoverOpen] = useState<boolean>(false);
   const { layout, pref: layoutPref, setPref: setLayoutPref } = useControlLayout();
 
   // Reflect role into refs + emulator gating.
@@ -107,6 +109,21 @@ export function SessionPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
+
+  // Close the handover popover on outside taps.
+  useEffect(() => {
+    if (!handoverOpen) return;
+    const onDoc = (e: Event) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest?.("[data-handover-wrap]")) setHandoverOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+    };
+  }, [handoverOpen]);
 
   // Follower catch-up watchdog (SPEC-SPEED §5). Every 200 ms we check
   // whether our local frame counter has fallen too far behind the most
@@ -497,6 +514,17 @@ export function SessionPage() {
     coreRef.current?.setVolume(next ? 0 : 1);
   };
 
+  // Controller-only: hand controls to a specific watcher. The server
+  // flips queue order, sends becomeController to the target, and
+  // broadcasts controllerChanged so all roles refresh.
+  const handover = (toConnId: string) => {
+    if (roleRef.current !== "controller") return;
+    const net = netRef.current;
+    if (!net?.isOpen()) return;
+    net.send({ type: "handover", toConnId });
+    setHandoverOpen(false);
+  };
+
   // Controller-only: cycle through the speed ladder. Apply locally at
   // the current frame AND send a frame-tagged speed event so followers
   // change speed at the same emulated point (SPEC-SPEED §1).
@@ -584,6 +612,38 @@ export function SessionPage() {
           </span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {isController && roster.some((r) => r.id !== selfId) && (
+            <div className="handover-wrap" data-handover-wrap>
+              <button
+                onClick={() => setHandoverOpen((v) => !v)}
+                data-testid="handover-btn"
+                title="Hand over controls to a watcher"
+                aria-haspopup="menu"
+                aria-expanded={handoverOpen}
+              >
+                Hand over ▾
+              </button>
+              {handoverOpen && (
+                <div className="handover-menu" role="menu" data-testid="handover-menu">
+                  <div className="handover-menu-section">Give controls to…</div>
+                  {roster
+                    .filter((r) => r.id !== selfId)
+                    .map((r) => (
+                      <button
+                        key={r.id}
+                        className="handover-menu-item"
+                        onClick={() => handover(r.id)}
+                        data-testid="handover-target"
+                        data-target-id={r.id}
+                      >
+                        <Avatar name={r.name} size={20} />
+                        <span style={{ flex: 1 }}>{r.name}</span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
           {isController ? (
             <button
               onClick={cycleSpeed}

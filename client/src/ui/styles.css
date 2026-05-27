@@ -739,6 +739,50 @@ input:focus, select:focus, button:focus-visible {
 }
 .play-header .speed-pill { cursor: default; }
 
+/* Hand-over popover (controller only — sits inside the header) */
+.handover-wrap { position: relative; display: inline-flex; }
+.handover-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  z-index: 25;
+  box-shadow: var(--shadow-2);
+}
+.handover-menu-section {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 10px 6px;
+}
+.handover-menu-item {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  color: var(--fg);
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+.handover-menu-item:hover { background: var(--bg-elev-3); }
+
+/* Tighter on phones — header is already crowded */
+@media (max-width: 480px) {
+  .play-header .handover-wrap button { padding: 4px 8px; font-size: 11px; }
+}
+
 .play-canvas-wrap {
   display: flex;
   align-items: center;

@@ -92,11 +92,20 @@ export interface LeaveMsg {
   type: "leave";
 }
 
+// Controller asks the server to pass the controls to a specific watcher.
+// Server validates that the sender is currently the controller and that
+// `toConnId` is in the participants list, then flips roles.
+export interface HandoverMsg {
+  type: "handover";
+  toConnId: string;
+}
+
 export type ClientMsg =
   | JoinMsg
   | ClientInputMsg
   | ClientSnapshotMsg
   | ClientSpeedMsg
+  | HandoverMsg
   | HeartbeatMsg
   | LeaveMsg;
 
