@@ -430,9 +430,15 @@ export function HomePage() {
         <div className="home-footer">
           <a href="/spike">Determinism spike</a>
           <span>·</span>
-          <span>v2 · persistent saves</span>
-          <span>·</span>
-          <span title="Build commit" data-testid="build-sha">#{__APP_VERSION__}</span>
+          <a
+            href={`https://github.com/RobinWeitzel/play-together-gba/commit/${__APP_VERSION__}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View this build's commit on GitHub"
+            data-testid="build-sha"
+          >
+            #{__APP_VERSION__}
+          </a>
         </div>
       </div>
     </div>
