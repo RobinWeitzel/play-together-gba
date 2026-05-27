@@ -22,6 +22,7 @@ coverage/
 /client/dist/
 /server/dist/
 .cache/
+*.tsbuildinfo
 
 # Persistent save data — created at runtime, never committed.
 /server/data/
