@@ -1,0 +1,21 @@
+VENDORED mGBA WASM CORE
+=======================
+
+These files are a vendored copy of the @thenick775/mgba-wasm package, redistributed
+under the terms of the Mozilla Public License, v. 2.0 (see LICENSE alongside).
+
+Files:
+  - mgba.js     (Emscripten-generated JavaScript loader for the WASM module)
+  - mgba.wasm   (mGBA emulator compiled to WebAssembly)
+  - mgba.d.ts   (TypeScript definitions for the JS loader)
+
+Source:
+  npm package : @thenick775/mgba-wasm
+  npm version : 2.4.1
+  upstream    : https://github.com/thenick775/mgba (feature/wasm branch)
+  vendored on : 2026-05-27
+
+Upstream project (mGBA) is by endrift and contributors:
+  https://github.com/mgba-emu/mgba
+
+To regenerate these vendored files, see /README.md "Regenerating the vendored mGBA core".

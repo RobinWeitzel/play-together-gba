@@ -1,0 +1,23 @@
+{
+  "name": "remote-gba-emulator",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Private, mobile-first, browser-based GBA emulator with watch-together sync. See SPEC.md.",
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c green,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --workspace server run dev",
+    "dev:client": "npm --workspace client run dev",
+    "build": "npm --workspace shared run build && npm --workspace client run build && npm --workspace server run build",
+    "start": "npm --workspace server run start",
+    "typecheck": "npm --workspace shared run typecheck && npm --workspace client run typecheck && npm --workspace server run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.3"
+  }
+}

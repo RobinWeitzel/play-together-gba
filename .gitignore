@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+.env
+.env.local
+.vite/
+coverage/
+.playwright-mcp/
+spike-state.png
+
+# ROMs (user-supplied real ROMs go here, not committed). Test ROM is whitelisted below.
+/server/roms/*
+!/server/roms/.gitkeep
+!/server/roms/README.md
+!/server/roms/test-*
+
+/client/dist/
+/server/dist/
+.cache/
