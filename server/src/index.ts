@@ -126,6 +126,19 @@ app.post<{ Params: { id: string } }>("/api/saves/:id/unarchive", async (req, rep
   return { save: summarizeSave(updated) };
 });
 
+// Download the latest snapshot bytes for off-site backup. Served as a raw
+// .state file — the client labels it sensibly via the `download` attribute
+// so the user gets a meaningful filename. 404s before the first snapshot.
+app.get<{ Params: { id: string } }>("/api/saves/:id/snapshot", async (req, reply) => {
+  const meta = saves.get(req.params.id);
+  if (!meta) { reply.code(404); return "not found"; }
+  const bytes = await saves.readSnapshot(req.params.id);
+  if (!bytes) { reply.code(404); return "no snapshot yet"; }
+  reply.header("content-type", "application/octet-stream");
+  reply.header("content-length", String(bytes.length));
+  return Buffer.from(bytes);
+});
+
 app.patch<{ Params: { id: string }; Body: { name?: string } }>("/api/saves/:id", async (req, reply) => {
   const body = req.body ?? {};
   const name = (body.name ?? "").trim().slice(0, MAX_SAVE_NAME_LEN);

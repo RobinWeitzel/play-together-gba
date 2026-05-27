@@ -154,6 +154,22 @@ export function HomePage() {
     }
   };
 
+  const onDownload = (save: SaveSummary) => {
+    setOpenMenuId(null);
+    // Sanitise the user-supplied save name for a filesystem-friendly
+    // filename (the save id keeps it unambiguous if two saves share a
+    // name).
+    const safeName = save.name.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 40) || "save";
+    const filename = `${safeName}-${save.id}.state`;
+    const a = document.createElement("a");
+    a.href = `/api/saves/${encodeURIComponent(save.id)}/snapshot`;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   const onRename = async (save: SaveSummary) => {
     setOpenMenuId(null);
     const raw = window.prompt(`Rename "${save.name}":`, save.name);
@@ -314,6 +330,7 @@ export function HomePage() {
                 onOpenSave={() => goToSave(s)}
                 onArchive={() => onArchive(s)}
                 onRename={() => onRename(s)}
+                onDownload={() => onDownload(s)}
               />
             ))}
           </ul>
@@ -396,6 +413,7 @@ export function HomePage() {
                     onOpenMenu={() => setOpenMenuId(openMenuId === s.id ? null : s.id)}
                     onOpenSave={() => goToSave(s)}
                     onRename={() => onRename(s)}
+                onDownload={() => onDownload(s)}
                     onUnarchive={() => onUnarchive(s)}
                     onDelete={() => onDelete(s)}
                   />
@@ -425,6 +443,7 @@ interface SaveCardProps {
   onOpenMenu: () => void;
   onOpenSave: () => void;
   onRename?: () => void;
+  onDownload?: () => void;
   onArchive?: () => void;
   onUnarchive?: () => void;
   onDelete?: () => void;
@@ -438,6 +457,7 @@ function SaveCard({
   onOpenMenu,
   onOpenSave,
   onRename,
+  onDownload,
   onArchive,
   onUnarchive,
   onDelete,
@@ -515,6 +535,16 @@ function SaveCard({
                   disabled={busy}
                 >
                   Rename…
+                </button>
+              )}
+              {onDownload && (
+                <button
+                  className="save-menu-item"
+                  onClick={onDownload}
+                  data-testid="action-download"
+                  disabled={busy}
+                >
+                  Download save…
                 </button>
               )}
               {onArchive && (
