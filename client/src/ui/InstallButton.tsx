@@ -8,48 +8,78 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-// In-app install pill. Lives in the hero so users don't have to hunt for
-// "Install app" in Chrome's overflow menu (which sometimes hides it
-// behind the more generic "Add to Home Screen" item).
+type Status =
+  | { kind: "checking" }
+  | { kind: "ready"; e: BeforeInstallPromptEvent }
+  | { kind: "installed" }
+  | { kind: "blocked"; reason: string };
+
+// Live PWA install status. Always renders so users see WHY install isn't
+// offered (otherwise debugging on a phone is impossible without USB tools).
 export function InstallButton() {
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
+  const [status, setStatus] = useState<Status>({ kind: "checking" });
 
   useEffect(() => {
-    // Already running as an installed app — nothing to offer.
+    if (typeof window === "undefined") return;
+
     if (window.matchMedia?.("(display-mode: standalone)").matches) {
-      setInstalled(true);
+      setStatus({ kind: "installed" });
+      return;
+    }
+
+    if (!("serviceWorker" in navigator)) {
+      setStatus({ kind: "blocked", reason: "no service worker support" });
       return;
     }
 
     const onPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
+      setStatus({ kind: "ready", e: e as BeforeInstallPromptEvent });
     };
-    const onInstalled = () => {
-      setDeferred(null);
-      setInstalled(true);
-    };
+    const onInstalled = () => setStatus({ kind: "installed" });
 
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
+
+    // If beforeinstallprompt hasn't fired after a few seconds, surface the
+    // most likely culprit so the user can see something useful.
+    const timer = window.setTimeout(async () => {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      const active = regs.find((r) => r.active);
+      setStatus((prev) => {
+        if (prev.kind !== "checking") return prev;
+        if (regs.length === 0) return { kind: "blocked", reason: "SW not registered" };
+        if (!active) return { kind: "blocked", reason: "SW not yet activated" };
+        return { kind: "blocked", reason: "install criteria not met (open chrome://inspect for details)" };
+      });
+    }, 4000);
+
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
+      window.clearTimeout(timer);
     };
   }, []);
 
-  if (installed || !deferred) return null;
+  if (status.kind === "installed") return null;
 
-  const onClick = async () => {
-    await deferred.prompt();
-    const choice = await deferred.userChoice;
-    if (choice.outcome === "accepted") setDeferred(null);
-  };
+  if (status.kind === "ready") {
+    const onClick = async () => {
+      await status.e.prompt();
+      const choice = await status.e.userChoice;
+      if (choice.outcome === "accepted") setStatus({ kind: "installed" });
+    };
+    return (
+      <button className="install-btn" onClick={onClick} data-testid="install-btn">
+        Install app
+      </button>
+    );
+  }
 
+  const label = status.kind === "checking" ? "Checking install…" : `Install n/a: ${status.reason}`;
   return (
-    <button className="install-btn" onClick={onClick} data-testid="install-btn">
-      Install app
-    </button>
+    <span className="install-status" data-testid="install-status" title={label}>
+      {label}
+    </span>
   );
 }
