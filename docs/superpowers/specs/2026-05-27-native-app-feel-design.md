@@ -40,8 +40,11 @@
 - `window.confirm` / `window.prompt` everywhere (replaced by `<ActionSheet>` and `<Prompt>`).
 - The inline "Start a new save" form on Home (moves into the new-save sheet).
 - The "How it works" cards on Home (move into onboarding).
-- The Home footer (version + `/spike` link).
 - The archived-saves accordion on Home (moves to Settings).
+
+**Kept on Home (carried over from recent work):**
+- The Install button (`InstallButton.tsx`), shown only when Chrome surfaces `beforeinstallprompt`. Re-themed to the new tokens; placement described in §4.
+- The footer with the `/spike` link + build-SHA commit link. Re-styled to be quieter but kept — the SHA link is useful for debugging deploys.
 
 ---
 
@@ -113,7 +116,8 @@ client/src/ui/
 - Full-bleed background — subtle gradient deterministically derived from the active card's save name (so each save has a visual identity without art).
 - Top bar:
   - Left: avatar — tap opens player-edit sheet (`<Prompt>` for name).
-  - Right: gear → `/settings`.
+  - Right: Install pill (only when `beforeinstallprompt` has fired and the app isn't already installed; auto-hides otherwise), then gear → `/settings`.
+- Footer (bottom of viewport, below the carousel + dots, low visual weight): `/spike` link · build-SHA link to GitHub commit. Survives the redesign because the SHA link is load-bearing for debugging deploys.
 - Hero region (top ~60% of viewport): swipeable carousel, one save card at a time, snap-scroll. Each card shows save name, ROM chip, last-played relative time, live indicator, top 3 contributors with avatars + minutes. Primary CTA fills the bottom of the card: **Continue** / **Join** / **Open**.
 - Dot indicator below the carousel.
 - FAB (bottom-right): `+` opens the new-save sheet.
@@ -322,7 +326,9 @@ Explicit non-goals so the implementation plan doesn't grow.
 
 **Kept exactly as today:**
 - WS protocol, snapshot cadence, controller queue, contributor minute-tracking, handover semantics, speed sync.
-- COOP/COEP headers, ROM hashing, `/spike` page, PWA manifest, no service worker.
+- COOP/COEP headers, ROM hashing, `/spike` page, PWA manifest.
+- The pass-through service worker (`client/public/sw.js`) — does no caching; only exists to satisfy Chrome Android's PWA install gate. Stays unchanged.
+- `InstallButton.tsx` and its `beforeinstallprompt` handling — only its styling is updated to match the new tokens. The build-SHA footer link likewise.
 - The mGBA WASM wrapper (`loadMgba.ts`) and its API surface.
 - Keyboard input mapping (`KEY_MAP` in `Gamepad.tsx`).
 - The `pagehide` cleanup, wake-lock, fullscreen, orientation lock on tap-start.
