@@ -95,3 +95,18 @@
 }
 .app-prompt button.primary { background: var(--accent); color: var(--accent-on); }
 .app-prompt button:disabled { opacity: .5; cursor: not-allowed; }
+
+.app-fab {
+  position: fixed;
+  right: calc(var(--safe-right) + 16px);
+  bottom: calc(var(--safe-bottom) + 24px);
+  width: 56px; height: 56px;
+  border-radius: 50%; border: 0;
+  background: var(--accent); color: var(--accent-on);
+  box-shadow: var(--sh-3);
+  font-size: 28px; font-weight: 300;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 70;
+  transition: transform var(--dur-fast) var(--ease-app);
+}
+.app-fab:active { transform: scale(.95); }
