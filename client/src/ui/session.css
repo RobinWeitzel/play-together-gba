@@ -16,7 +16,7 @@
   flex: 1; min-height: 0;
   display: flex; align-items: center; justify-content: center;
   padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + 8px)
-          80px /* room for peek sheet */ calc(var(--safe-left) + 8px);
+          36px /* slim peek handle */ calc(var(--safe-left) + 8px);
 }
 .play-canvas-v2 {
   display: block;
@@ -48,7 +48,7 @@
   display: flex !important;
   flex-direction: row;
   flex-shrink: 0;
-  padding: 0 8px 80px; /* 80px = peek-sheet height; pads sit above it */
+  padding: 0 8px 40px; /* slim peek handle ~24px + breathing */
   gap: 16px;
   z-index: 2;
 }
@@ -60,7 +60,7 @@
 .play-shell-v2[data-layout="flanking"] .play-canvas-wrap-v2 {
   padding-left:  max(160px, calc(var(--safe-left) + 160px));
   padding-right: max(160px, calc(var(--safe-right) + 160px));
-  padding-bottom: 60px; /* peek sheet ~56px */
+  padding-bottom: 36px;
 }
 .play-shell-v2[data-layout="flanking"] .pad-panel {
   position: fixed;
@@ -71,37 +71,29 @@
 .play-shell-v2[data-layout="flanking"] .pad-panel-right { right: max(8px, var(--safe-right)); }
 
 /* Overlay: canvas fills the shell; pads are translucent over the bottom
-   corners. Pad-bottom only reserves space for the peek sheet. */
+   corners. Pad-bottom only reserves space for the slim peek handle. */
 .play-shell-v2[data-layout="overlay"] .play-canvas-wrap-v2 {
-  padding: calc(var(--safe-top) + 4px) calc(var(--safe-right) + 4px) 60px calc(var(--safe-left) + 4px);
+  padding: calc(var(--safe-top) + 4px) calc(var(--safe-right) + 4px) 36px calc(var(--safe-left) + 4px);
 }
 .play-shell-v2[data-layout="overlay"] .pad-panel {
   position: fixed;
-  bottom: 88px; /* above the peek sheet (~56px) plus breathing room */
+  bottom: 50px; /* above the slim peek handle */
   opacity: 0.78;
   z-index: 20;
 }
 .play-shell-v2[data-layout="overlay"] .pad-panel-left  { left:  max(8px, var(--safe-left)); }
 .play-shell-v2[data-layout="overlay"] .pad-panel-right { right: max(8px, var(--safe-right)); }
 
-/* Peek sheet — content of the sheet body */
-.peek-row {
-  display: flex; align-items: center; gap: 12px;
-  min-height: 44px;
-  padding: 0 4px;
+/* In-game peek handle. Replaces the old peek-row — the collapsed sheet now
+   shows just a slim drag affordance so the game canvas isn't visually
+   competing with status chrome. Status info has moved into the expanded
+   sheet's top section. */
+.ingame-handle {
+  /* Slightly bigger hit target than the default app-sheet-handle since
+     it's the ONLY thing visible when collapsed. */
+  min-height: 24px;
+  padding: 8px 0;
 }
-.peek-row .avs { display: flex; }
-.peek-row .avs > * { margin-left: -6px; }
-.peek-row .status { flex: 1; min-width: 0; font-size: 13px; }
-.peek-row .status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: #4ade80; vertical-align: middle; }
-.peek-row .speed {
-  background: var(--bg-3); color: var(--fg);
-  border: 0; border-radius: 99px;
-  padding: 6px 14px;
-  font-size: 13px; font-weight: 700;
-  cursor: pointer;
-}
-.peek-row .speed[data-active="true"] { background: var(--accent); color: var(--accent-on); }
 
 /* Expanded sections */
 .exp-section { margin-bottom: 18px; }

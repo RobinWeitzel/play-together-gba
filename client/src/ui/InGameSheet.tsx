@@ -54,26 +54,26 @@ export function InGameSheet(props: Props) {
       <Sheet
         state={state}
         onStateChange={setState}
-        peekHeight={56}
+        peekHeight={28}
         expandedHeight="78dvh"
+        handle={
+          <div
+            className="app-sheet-handle ingame-handle"
+            aria-label="Open in-game menu"
+            role="button"
+            onClick={() => setState(state === "peek" ? "expanded" : "peek")}
+            data-testid="ingame-handle"
+          />
+        }
       >
-        <PeekRow
-          roster={roster}
-          statusText={statusText}
-          multiplier={multiplier}
-          isController={isController}
-          onCycleSpeed={onCycleSpeed}
-          onExpand={() => setState("expanded")}
-        />
-
         {state === "expanded" && (
-          <div style={{ marginTop: 8 }}>
-            {/* Now playing */}
+          <div>
+            {/* Status header — moved here from the old peek row */}
             <div className="exp-section exp-now-playing">
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <div className="name">{saveName}</div>
-                  <div className="sub">{romName} · #{saveId} · {role ?? "joining"} · {connState}</div>
+                  <div className="sub">{statusText} · {multiplier}× · {romName}</div>
                 </div>
                 <button className="exit" onClick={onExit} data-testid="exit-to-home">Exit</button>
               </div>
@@ -201,49 +201,3 @@ export function InGameSheet(props: Props) {
   );
 }
 
-function PeekRow({
-  roster, statusText, multiplier, isController, onCycleSpeed, onExpand,
-}: {
-  roster: RosterEntry[];
-  statusText: string;
-  multiplier: number;
-  isController: boolean;
-  onCycleSpeed: () => void;
-  onExpand: () => void;
-}) {
-  return (
-    <div
-      className="peek-row"
-      onClick={onExpand}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter") onExpand(); }}
-    >
-      <div className="avs">
-        {roster.slice(0, 4).map((r) => (
-          <Avatar key={r.id} name={r.name} size={26} title={`${r.name} (${r.role})`} />
-        ))}
-        {roster.length > 4 && (
-          <span style={{ alignSelf: "center", marginLeft: 4, fontSize: 11, color: "var(--fg-muted)" }}>
-            +{roster.length - 4}
-          </span>
-        )}
-      </div>
-      <div className="status">
-        <span className="dot" /> {statusText}
-      </div>
-      <button
-        className="speed"
-        data-active={multiplier > 1 || undefined}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isController) onCycleSpeed();
-          else onExpand();
-        }}
-        data-testid="peek-speed"
-      >
-        {multiplier}×
-      </button>
-    </div>
-  );
-}
