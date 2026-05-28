@@ -71,3 +71,27 @@
   from { opacity: 0; transform: scale(.98); }
   to   { opacity: 1; transform: scale(1); }
 }
+
+.app-prompt { display: flex; flex-direction: column; gap: 12px; }
+.app-prompt h3 { margin: 0; font-size: 17px; }
+.app-prompt p { margin: 0; color: var(--fg-muted); font-size: 13px; }
+.app-prompt input {
+  background: var(--bg-3); color: var(--fg);
+  border: 1px solid transparent; border-radius: var(--r-md);
+  padding: 12px 14px; font-size: 16px;
+}
+.app-prompt input:focus { border-color: var(--accent); outline: 0; }
+.app-prompt .actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px;
+}
+.app-prompt button {
+  min-height: var(--tap-min);
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  border: 0;
+  font-size: 15px; font-weight: 600;
+  background: var(--bg-3); color: var(--fg);
+  cursor: pointer;
+}
+.app-prompt button.primary { background: var(--accent); color: var(--accent-on); }
+.app-prompt button:disabled { opacity: .5; cursor: not-allowed; }
