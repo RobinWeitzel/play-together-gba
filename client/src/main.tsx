@@ -5,6 +5,7 @@ import "./ui/primitives/primitives.css";
 import "./ui/styles.css";
 import "./ui/settings.css";
 import "./ui/home.css";
+import "./ui/session.css";
 
 const rootEl = document.getElementById("root")!;
 // No StrictMode: in dev StrictMode double-mounts components, which would

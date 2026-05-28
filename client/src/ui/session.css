@@ -1,0 +1,81 @@
+.play-shell-v2 {
+  position: fixed; inset: 0;
+  background: var(--bg-0);
+  color: var(--fg);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.play-bg-v2 {
+  position: absolute; inset: 0;
+  z-index: 0;
+  opacity: .55;
+  filter: blur(40px) saturate(140%);
+}
+.play-canvas-wrap-v2 {
+  position: relative; z-index: 1;
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + 8px)
+          80px /* room for peek sheet */ calc(var(--safe-left) + 8px);
+}
+.play-canvas-v2 {
+  display: block;
+  max-width: 100%; max-height: 100%;
+  width: auto; height: auto;
+  image-rendering: pixelated;
+  background: #000;
+  border-radius: 6px;
+  box-shadow: var(--sh-2);
+}
+
+/* Peek sheet — content of the sheet body */
+.peek-row {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 44px;
+  padding: 0 4px;
+}
+.peek-row .avs { display: flex; }
+.peek-row .avs > * { margin-left: -6px; }
+.peek-row .status { flex: 1; min-width: 0; font-size: 13px; }
+.peek-row .status .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: #4ade80; vertical-align: middle; }
+.peek-row .speed {
+  background: var(--bg-3); color: var(--fg);
+  border: 0; border-radius: 99px;
+  padding: 6px 14px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+}
+.peek-row .speed[data-active="true"] { background: var(--accent); color: var(--accent-on); }
+
+/* Expanded sections */
+.exp-section { margin-bottom: 18px; }
+.exp-section h3 {
+  font-size: 11px; color: var(--fg-muted);
+  letter-spacing: .06em; text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.exp-row {
+  display: flex; align-items: center; gap: 10px;
+  min-height: var(--tap-min);
+  padding: 10px 12px;
+  background: var(--bg-3);
+  border-radius: var(--r-md);
+  margin-bottom: 6px;
+}
+.exp-row.tap { cursor: pointer; }
+.exp-row .label { flex: 1; }
+.exp-row .value { color: var(--fg-muted); font-size: 13px; }
+.exp-now-playing .name { font-size: 19px; font-weight: 700; }
+.exp-now-playing .sub  { font-size: 12px; color: var(--fg-muted); }
+.exp-now-playing .exit {
+  margin-left: auto;
+  background: var(--bg-3); color: var(--fg);
+  border: 0; border-radius: var(--r-md);
+  padding: 8px 14px;
+  font-size: 13px; cursor: pointer;
+}
+.exp-promote {
+  background: transparent; border: 0; color: var(--accent);
+  font-size: 12px; cursor: pointer; padding: 4px 8px;
+  align-self: flex-start;
+}
