@@ -73,3 +73,45 @@
 }
 .editor-bottombar .actions button.primary { background: var(--accent); color: var(--accent-on); }
 .editor-bottombar .actions button.danger { color: var(--danger); }
+
+/* Landscape on a phone: compact everything into a single row so the
+   canvas area gets back the half-screen the original three-row layout
+   was eating. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .editor-bottombar {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px calc(var(--safe-bottom) + 6px);
+  }
+  /* Slider becomes horizontal: "Opacity 85% [—•———]" */
+  .editor-bottombar > .app-slider {
+    flex: 1 1 auto;
+    min-width: 140px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .editor-bottombar > .app-slider .app-slider-label {
+    flex: 0 0 auto;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .editor-bottombar > .app-slider input[type=range] {
+    flex: 1; min-width: 60px;
+    height: 24px;
+  }
+  /* Compact grid/reset buttons */
+  .editor-bottombar .row,
+  .editor-bottombar .actions {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+  .editor-bottombar .row button,
+  .editor-bottombar .actions button {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
