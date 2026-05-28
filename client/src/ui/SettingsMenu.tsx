@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ControlLayout } from "../lib/settings";
-import { resolveLayout, useOrientation } from "../lib/settings";
+import { effectiveControlLayout, useOrientation } from "../lib/settings";
 
 interface Props {
   pref: ControlLayout | null;
@@ -20,7 +20,7 @@ export function SettingsMenu({ pref, effective, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const isLandscape = useOrientation();
-  const autoResolved = resolveLayout(null, isLandscape);
+  const autoResolved = effectiveControlLayout("auto", isLandscape);
 
   // Click-outside to close.
   useEffect(() => {

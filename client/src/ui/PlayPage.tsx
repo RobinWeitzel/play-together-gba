@@ -8,7 +8,7 @@ import { sha256Hex } from "../lib/hash";
 import { acquireWakeLock } from "../lib/wake";
 import { Gamepad } from "./Gamepad";
 import { navigate, useRoute } from "../lib/router";
-import { useControlLayout } from "../lib/settings";
+import { effectiveControlLayout, loadGlobal, useOrientation, type ControlLayout } from "../lib/settings";
 import { SettingsMenu } from "./SettingsMenu";
 
 type Status = "loading" | "needs-tap" | "running" | "error";
@@ -23,7 +23,12 @@ export function PlayPage() {
   const [status, setStatus] = useState<Status>("loading");
   const [err, setErr] = useState<string | null>(null);
   const [romName, setRomName] = useState<string>("");
-  const { layout, pref: layoutPref, setPref: setLayoutPref } = useControlLayout();
+  const isLandscape = useOrientation();
+  const [layoutPref, setLayoutPref] = useState<ControlLayout | null>(() => {
+    const g = loadGlobal();
+    return g.controlLayout === "auto" ? null : g.controlLayout;
+  });
+  const layout = layoutPref ?? effectiveControlLayout("auto", isLandscape);
 
   // Boot the core + load the ROM once we have a canvas.
   useEffect(() => {

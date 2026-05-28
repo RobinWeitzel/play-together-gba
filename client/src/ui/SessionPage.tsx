@@ -21,7 +21,7 @@ import { navigate, useRoute } from "../lib/router";
 import { connect, wsUrl, type NetHandle } from "../net/ws";
 import { bytesToBase64, base64ToBytes } from "../lib/b64";
 import { formatMs, getPlayerName, setPlayerName } from "../lib/player";
-import { useControlLayout } from "../lib/settings";
+import { effectiveControlLayout, loadGlobal, useOrientation, type ControlLayout } from "../lib/settings";
 import { SettingsMenu } from "./SettingsMenu";
 import { Avatar } from "./Avatar";
 import { IconBack, IconMuted, IconUnmuted } from "./icons";
@@ -105,7 +105,12 @@ export function SessionPage() {
   const [multiplier, setMultiplier] = useState<number>(1);
   // Handover popover (controller-only).
   const [handoverOpen, setHandoverOpen] = useState<boolean>(false);
-  const { layout, pref: layoutPref, setPref: setLayoutPref } = useControlLayout();
+  const isLandscape = useOrientation();
+  const [layoutPref, setLayoutPref] = useState<ControlLayout | null>(() => {
+    const g = loadGlobal();
+    return g.controlLayout === "auto" ? null : g.controlLayout;
+  });
+  const layout = layoutPref ?? effectiveControlLayout("auto", isLandscape);
 
   // Reflect role into refs + emulator gating.
   useEffect(() => {
