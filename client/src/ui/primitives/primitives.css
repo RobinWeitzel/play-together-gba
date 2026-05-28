@@ -1,0 +1,36 @@
+.app-sheet-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 80;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-app);
+  pointer-events: none;
+}
+.app-sheet-backdrop[data-state="expanded"] { opacity: 1; pointer-events: auto; }
+.app-sheet-backdrop[data-state="peek"] { opacity: 0; pointer-events: none; }
+.app-sheet-backdrop[data-state="closed"] { opacity: 0; pointer-events: none; }
+
+.app-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  background: var(--bg-2);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  box-shadow: var(--sh-3);
+  z-index: 90;
+  color: var(--fg);
+  padding-bottom: var(--safe-bottom);
+  touch-action: none;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--dur-sheet) var(--ease-app);
+}
+.app-sheet[data-dragging="true"] { transition: none; }
+
+.app-sheet-handle {
+  display: flex; justify-content: center; padding: 8px 0 4px;
+}
+.app-sheet-handle::before {
+  content: ""; width: 36px; height: 4px;
+  background: var(--fg-dim);
+  border-radius: 99px;
+}
+
+.app-sheet-content { padding: 4px 16px 20px; }

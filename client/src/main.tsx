@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./ui/tokens.css";
+import "./ui/primitives/primitives.css";
 import "./ui/styles.css";
 
 const rootEl = document.getElementById("root")!;
