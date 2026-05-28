@@ -1,0 +1,42 @@
+/* Design tokens. Imported first so every other stylesheet can use these vars. */
+
+:root {
+  /* Radii */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+
+  /* Surfaces — dark default */
+  --bg-0: #0b0b0e;       /* page */
+  --bg-1: #15151b;       /* card */
+  --bg-2: #1c1c24;       /* sheet */
+  --bg-3: #23232d;       /* elevated within sheet */
+  --fg:   #e8e8ee;
+  --fg-muted: #a0a0b0;
+  --fg-dim:   #6c6c80;
+  --accent:   #7c5cff;
+  --accent-on: #ffffff;
+  --danger:   #ff5c7c;
+
+  /* Motion */
+  --ease-app: cubic-bezier(.32,.72,0,1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-sheet: 320ms;
+
+  /* Touch */
+  --tap-min: 44px;
+
+  /* Depth */
+  --sh-1: 0 1px 2px rgba(0,0,0,.25);
+  --sh-2: 0 4px 12px rgba(0,0,0,.35);
+  --sh-3: 0 8px 24px rgba(0,0,0,.45);
+  --sh-4: 0 16px 48px rgba(0,0,0,.55);
+
+  /* Safe-area shorthands (use directly or with calc()) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
