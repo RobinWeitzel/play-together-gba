@@ -44,7 +44,20 @@ export function Sheet({
 
   useEffect(() => {
     if (!elRef.current) return;
-    elRef.current.style.transform = `translate3d(0, ${restingOffset(state)}px, 0)`;
+    const apply = () => {
+      if (!elRef.current) return;
+      elRef.current.style.transform = `translate3d(0, ${restingOffset(state)}px, 0)`;
+    };
+    apply();
+    // The sheet's height is set in dvh, so it changes on orientation rotate.
+    // The transform we computed for the old height puts the sheet off-screen
+    // (or sticking up too far) in the new viewport; recompute on resize.
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    return () => {
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("orientationchange", apply);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, peekHeight]);
 
