@@ -34,3 +34,20 @@
 }
 
 .app-sheet-content { padding: 4px 16px 20px; }
+
+.app-action-sheet { padding: 0 0 8px; }
+.app-action-sheet h3 { margin: 4px 16px 12px; font-size: 14px; color: var(--fg-muted); font-weight: 600; }
+.app-action-sheet button {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; min-height: var(--tap-min);
+  background: transparent; color: var(--fg);
+  border: 0; padding: 14px 18px;
+  font-size: 16px; text-align: left;
+  cursor: pointer;
+}
+.app-action-sheet button:active { background: var(--bg-3); }
+.app-action-sheet button[data-destructive="true"] { color: var(--danger); }
+.app-action-sheet hr {
+  border: 0; height: 1px; background: var(--bg-3); margin: 6px 0;
+}
+.app-action-sheet .chevron { margin-left: auto; color: var(--fg-dim); }
