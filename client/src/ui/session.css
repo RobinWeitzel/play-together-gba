@@ -28,6 +28,53 @@
   box-shadow: var(--sh-2);
 }
 
+/* === Layout positioning for .play-shell-v2 ===
+   .pad-host uses display:contents so .pad-panel-left / .pad-panel-right
+   become direct children of .play-shell-v2 (a flex column). Without
+   layout-specific rules the panels would stack vertically in flow and
+   squeeze the canvas to zero height. Each data-layout below positions
+   them out of the flex flow (or in row) so the canvas can fill. */
+
+/* Stacked: pads sit BELOW the canvas, side-by-side. */
+.play-shell-v2[data-layout="stacked"] {
+  flex-direction: column;
+}
+.play-shell-v2[data-layout="stacked"] .play-canvas-wrap-v2 {
+  padding-bottom: 16px;
+}
+.play-shell-v2[data-layout="stacked"] .pad-host {
+  display: flex !important;
+  flex-direction: row;
+  flex-shrink: 0;
+  padding: 0 8px 80px; /* 80px = peek-sheet height; pads sit above it */
+  gap: 16px;
+  z-index: 2;
+}
+.play-shell-v2[data-layout="stacked"] .pad-panel { flex: 1; min-width: 0; }
+
+/* Flanking: pads flank the canvas on the left and right. */
+.play-shell-v2[data-layout="flanking"] .play-canvas-wrap-v2 {
+  padding-left:  max(120px, calc(var(--safe-left) + 120px));
+  padding-right: max(120px, calc(var(--safe-right) + 120px));
+}
+.play-shell-v2[data-layout="flanking"] .pad-panel {
+  position: fixed;
+  top: 50%; transform: translateY(-50%);
+  z-index: 20;
+}
+.play-shell-v2[data-layout="flanking"] .pad-panel-left  { left:  max(8px, var(--safe-left)); }
+.play-shell-v2[data-layout="flanking"] .pad-panel-right { right: max(8px, var(--safe-right)); }
+
+/* Overlay: pads are absolutely positioned, translucent, at the bottom corners. */
+.play-shell-v2[data-layout="overlay"] .pad-panel {
+  position: fixed;
+  bottom: 88px; /* above the peek sheet (~56px) plus breathing room */
+  opacity: 0.78;
+  z-index: 20;
+}
+.play-shell-v2[data-layout="overlay"] .pad-panel-left  { left:  max(8px, var(--safe-left)); }
+.play-shell-v2[data-layout="overlay"] .pad-panel-right { right: max(8px, var(--safe-right)); }
+
 /* Peek sheet — content of the sheet body */
 .peek-row {
   display: flex; align-items: center; gap: 12px;
