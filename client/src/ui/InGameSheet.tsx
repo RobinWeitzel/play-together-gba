@@ -3,6 +3,7 @@ import { Sheet, type SheetState, SegmentedControl, ActionSheet } from "./primiti
 import { Avatar } from "./Avatar";
 import type { RosterEntry, Role } from "@gba/shared";
 import { loadRom, saveRom, type ControlLayout } from "../lib/settings";
+import { navigate } from "../lib/router";
 
 interface Props {
   saveName: string;
@@ -126,7 +127,7 @@ export function InGameSheet(props: Props) {
               </div>
               <button
                 className="exp-row tap"
-                onClick={() => { location.assign(`/edit-controls?scope=rom:${encodeURIComponent(romId)}`); }}
+                onClick={() => { navigate(`/edit-controls?scope=rom:${encodeURIComponent(romId)}`); }}
                 data-testid="ingame-edit-buttons"
                 style={{ width: "100%", border: 0, color: "var(--fg)", textAlign: "left" }}
               >
@@ -176,7 +177,7 @@ export function InGameSheet(props: Props) {
               </p>
               <button
                 className="exp-row tap"
-                onClick={() => { location.assign("/settings/per-game"); }}
+                onClick={() => { navigate("/settings/per-game"); }}
                 style={{ border: 0, color: "var(--fg)", textAlign: "left", width: "100%" }}
                 data-testid="ingame-per-game"
               >
