@@ -162,3 +162,33 @@
   box-shadow: var(--sh-1);
 }
 .app-segmented.full { display: flex; width: 100%; }
+
+.app-carousel-wrap { width: 100%; }
+.app-carousel {
+  display: flex; gap: 14px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 0 16px;
+  scroll-padding-inline: 16px;
+}
+.app-carousel::-webkit-scrollbar { display: none; }
+.app-carousel > * {
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+  flex: 0 0 calc(100% - 32px);
+}
+.app-carousel-dots {
+  display: flex; justify-content: center; gap: 6px;
+  padding: 12px 0 4px;
+}
+.app-carousel-dots .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--fg-dim);
+  transition: background var(--dur-fast) var(--ease-app),
+              transform var(--dur-fast) var(--ease-app);
+}
+.app-carousel-dots .dot[data-active="true"] {
+  background: var(--accent);
+  transform: scale(1.3);
+}
