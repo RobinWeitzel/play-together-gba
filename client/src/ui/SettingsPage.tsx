@@ -54,21 +54,20 @@ export function SettingsPage() {
         {/* ===== Defaults ===== */}
         <section className="settings-section">
           <h2>Defaults</h2>
-          <div className="settings-row">
+          <div className="settings-row settings-row-stacked">
             <span className="label">Control layout</span>
-            <span className="segmented-wrap">
-              <SegmentedControl<ControlLayout | "auto">
-                options={[
-                  { value: "auto", label: "Auto" },
-                  { value: "flanking", label: "Side" },
-                  { value: "overlay", label: "Overlay" },
-                  { value: "stacked", label: "Stacked" },
-                ]}
-                value={settings.controlLayout}
-                onChange={(v) => patch({ controlLayout: v })}
-                testId="seg-control-layout"
-              />
-            </span>
+            <SegmentedControl<ControlLayout | "auto">
+              options={[
+                { value: "auto", label: "Auto" },
+                { value: "flanking", label: "Side" },
+                { value: "overlay", label: "Overlay" },
+                { value: "stacked", label: "Stacked" },
+              ]}
+              value={settings.controlLayout}
+              onChange={(v) => patch({ controlLayout: v })}
+              fullWidth
+              testId="seg-control-layout"
+            />
           </div>
           <button
             className="settings-row"
@@ -79,20 +78,19 @@ export function SettingsPage() {
             <span className="value">{settings.buttonLayout ? "Customized" : "Default"}</span>
             <span className="chevron">›</span>
           </button>
-          <div className="settings-row">
+          <div className="settings-row settings-row-stacked">
             <span className="label">Haptics</span>
-            <span className="segmented-wrap">
-              <SegmentedControl<HapticsMode>
-                options={[
-                  { value: "off", label: "Off" },
-                  { value: "light", label: "Light" },
-                  { value: "strong", label: "Strong" },
-                ]}
-                value={settings.haptics}
-                onChange={(v) => patch({ haptics: v })}
-                testId="seg-haptics"
-              />
-            </span>
+            <SegmentedControl<HapticsMode>
+              options={[
+                { value: "off", label: "Off" },
+                { value: "light", label: "Light" },
+                { value: "strong", label: "Strong" },
+              ]}
+              value={settings.haptics}
+              onChange={(v) => patch({ haptics: v })}
+              fullWidth
+              testId="seg-haptics"
+            />
           </div>
           <button
             className="settings-row toggle"

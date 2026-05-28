@@ -44,3 +44,14 @@
 .settings-row.toggle .value { color: var(--accent); }
 
 .settings-row .segmented-wrap { margin-left: auto; }
+
+/* Row variant where the control sits BELOW the label at full width — used
+   for segmented controls with 4 options that won't fit alongside the label
+   on a narrow phone. */
+.settings-row-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.settings-row-stacked .label { flex: 0 0 auto; font-weight: 500; }
