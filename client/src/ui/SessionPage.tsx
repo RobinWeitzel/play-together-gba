@@ -491,9 +491,11 @@ export function SessionPage() {
   const onTapStart = async () => {
     const core = coreRef.current;
     if (!core) return;
+    // Audio context must be resumed from a user gesture (Chrome policy).
+    // Fullscreen + orientation lock were removed: the peek-sheet UI works
+    // in both orientations, and PWA install mode already hides browser
+    // chrome for users who want it.
     try { await core.module.SDL2?.audioContext?.resume?.(); } catch { /* ignore */ }
-    try { await document.documentElement.requestFullscreen?.(); } catch { /* iOS Safari rejects */ }
-    try { await (screen.orientation as any)?.lock?.("landscape"); } catch { /* ignore */ }
     try { wakeRef.current = await acquireWakeLock(); } catch { /* ignore */ }
     core.resume();
     runningRef.current = true;
