@@ -20,14 +20,13 @@ import { Gamepad } from "./Gamepad";
 import { navigate, useRoute } from "../lib/router";
 import { connect, wsUrl, type NetHandle } from "../net/ws";
 import { bytesToBase64, base64ToBytes } from "../lib/b64";
-import { formatMs, getPlayerName, setPlayerName } from "../lib/player";
+import { getPlayerName, setPlayerName } from "../lib/player";
 import { effectiveControlLayout, loadGlobal, useOrientation, type ControlLayout } from "../lib/settings";
-import { SettingsMenu } from "./SettingsMenu";
-import { Avatar } from "./Avatar";
-import { IconBack, IconMuted, IconUnmuted } from "./icons";
+import { gradientForName } from "../lib/gradient";
+import { Modal, StatusPill } from "./primitives";
+import { InGameSheet } from "./InGameSheet";
 import {
   DEFAULTS,
-  SPEED_LADDER,
   nextLadderSpeed,
   type Role,
   type RosterEntry,
@@ -79,6 +78,7 @@ export function SessionPage() {
   const [err, setErr] = useState<string | null>(null);
   const [saveName, setSaveName] = useState<string>("");
   const [romName, setRomName] = useState<string>("");
+  const [romId, setRomId] = useState<string>("");
   const [role, setRole] = useState<Role | null>(null);
   const [roster, setRoster] = useState<RosterEntry[]>([]);
   const [selfId, setSelfId] = useState<string | null>(null);
@@ -103,8 +103,6 @@ export function SessionPage() {
   const [playerName, setPlayerNameState] = useState<string>(getPlayerName());
   // Visible speed multiplier (controller can change; followers see read-only).
   const [multiplier, setMultiplier] = useState<number>(1);
-  // Handover popover (controller-only).
-  const [handoverOpen, setHandoverOpen] = useState<boolean>(false);
   const isLandscape = useOrientation();
   const [layoutPref, setLayoutPref] = useState<ControlLayout | null>(() => {
     const g = loadGlobal();
@@ -128,21 +126,6 @@ export function SessionPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
-
-  // Close the handover popover on outside taps.
-  useEffect(() => {
-    if (!handoverOpen) return;
-    const onDoc = (e: Event) => {
-      const t = e.target as HTMLElement;
-      if (!t.closest?.("[data-handover-wrap]")) setHandoverOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("touchstart", onDoc);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("touchstart", onDoc);
-    };
-  }, [handoverOpen]);
 
   // Follower catch-up watchdog (SPEC-SPEED §5). Every 200 ms we check
   // whether our local frame counter has fallen too far behind the most
@@ -375,6 +358,7 @@ export function SessionPage() {
         setRoster(msg.roster);
         // Role is derived from (selfId, controllerId) via useEffect.
         setControllerId(msg.controllerId);
+        setRomId(msg.romId);
         setSaveName(msg.saveName);
         setContributors(msg.contributors ?? {});
         // Adopt the session's current speed (SPEC-SPEED §2). Stored
@@ -546,7 +530,6 @@ export function SessionPage() {
     const net = netRef.current;
     if (!net?.isOpen()) return;
     net.send({ type: "handover", toConnId });
-    setHandoverOpen(false);
   };
 
   // Controller-only: cycle through the speed ladder. Apply locally at
@@ -587,160 +570,95 @@ export function SessionPage() {
   }
 
   const isController = role === "controller";
-  const contributorEntries = Object.entries(contributors).sort((a, b) => b[1] - a[1]);
 
   return (
     <div
-      className="play-shell"
+      className="play-shell-v2"
       data-status={status}
       data-role={role ?? "unknown"}
       data-layout={layout}
     >
-      <div className="play-header">
-        <button onClick={onBack} title="Back to home" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <IconBack size={12} /> <span>Back</span>
-        </button>
-        <div className="role-indicator" data-testid="role-indicator">
-          <strong>{saveName || "…"}</strong>
-          <span className="rom-name" style={{ color: "var(--muted)" }}>{romName}</span>
-          <span className="save-id-chip" data-testid="save-id-chip">#{saveId}</span>
-          <span className="conn-state" style={{ color: "var(--muted-soft)" }}>
-            · <span data-testid="role">{role ?? "joining…"}</span> · {connState}
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {isController && roster.some((r) => r.id !== selfId) && (
-            <div className="handover-wrap" data-handover-wrap>
-              <button
-                onClick={() => setHandoverOpen((v) => !v)}
-                data-testid="handover-btn"
-                title="Hand over controls to a watcher"
-                aria-haspopup="menu"
-                aria-expanded={handoverOpen}
-              >
-                Hand over ▾
-              </button>
-              {handoverOpen && (
-                <div className="handover-menu" role="menu" data-testid="handover-menu">
-                  <div className="handover-menu-section">Give controls to…</div>
-                  {roster
-                    .filter((r) => r.id !== selfId)
-                    .map((r) => (
-                      <button
-                        key={r.id}
-                        className="handover-menu-item"
-                        onClick={() => handover(r.id)}
-                        data-testid="handover-target"
-                        data-target-id={r.id}
-                      >
-                        <Avatar name={r.name} size={20} />
-                        <span style={{ flex: 1 }}>{r.name}</span>
-                      </button>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-          {isController ? (
-            <button
-              onClick={cycleSpeed}
-              data-testid="speed-cycle"
-              title={`Speed (${multiplier}×) — tap to cycle ${SPEED_LADDER.join("×→")}×`}
-              className={multiplier > 1 ? "speed-btn speed-btn-on" : "speed-btn"}
-            >
-              {multiplier}×
-            </button>
-          ) : (
-            <span
-              data-testid="speed-readonly"
-              className={multiplier > 1 ? "speed-pill speed-pill-on" : "speed-pill"}
-              title={`Speed: ${multiplier}×`}
-            >
-              {multiplier}×
-            </span>
-          )}
-          <button onClick={toggleMute} data-testid="mute-toggle" title={muted ? "Unmute" : "Mute"}
-                  style={{ display: "inline-flex", alignItems: "center" }}>
-            {muted ? <IconMuted size={14} /> : <IconUnmuted size={14} />}
-          </button>
-          <SettingsMenu pref={layoutPref} effective={layout} onChange={setLayoutPref} />
-          <span style={{ fontSize: 11, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 4 }}
-                data-testid="roster-summary"
-                title={`${roster.length} ${roster.length === 1 ? "player" : "players"} in session`}>
-            <div style={{ display: "flex" }}>
-              {roster.slice(0, 4).map((r) => (
-                <span key={r.id} style={{ marginLeft: -4 }}><Avatar name={r.name} size={20} title={`${r.name} (${r.role})`} /></span>
-              ))}
-            </div>
-            {roster.length > 4 && <span>+{roster.length - 4}</span>}
-          </span>
-        </div>
-      </div>
+      {/* Decorative blurred backdrop */}
+      <div
+        className="play-bg-v2"
+        style={{ background: gradientForName(saveName || romName || "?") }}
+        aria-hidden
+      />
 
-      <div className="play-canvas-wrap">
+      <div className="play-canvas-wrap-v2">
         <canvas
           ref={canvasRef}
           width={240}
           height={160}
-          className="play-canvas"
+          className="play-canvas-v2"
         />
       </div>
 
-      <Gamepad onPress={(b: GbaButton) => {
-        const c = coreRef.current; if (!c) return;
-        c.pressButton(b);
-        if (roleRef.current === "controller") netRef.current?.send({ type: "input", frame: c.getFrame(), button: b, pressed: true });
-      }} onRelease={(b: GbaButton) => {
-        const c = coreRef.current; if (!c) return;
-        c.releaseButton(b);
-        if (roleRef.current === "controller") netRef.current?.send({ type: "input", frame: c.getFrame(), button: b, pressed: false });
-      }} disabled={!isController} />
+      <Gamepad
+        onPress={(b: GbaButton) => {
+          const c = coreRef.current; if (!c) return;
+          c.pressButton(b);
+          if (roleRef.current === "controller") netRef.current?.send({ type: "input", frame: c.getFrame(), button: b, pressed: true });
+        }}
+        onRelease={(b: GbaButton) => {
+          const c = coreRef.current; if (!c) return;
+          c.releaseButton(b);
+          if (roleRef.current === "controller") netRef.current?.send({ type: "input", frame: c.getFrame(), button: b, pressed: false });
+        }}
+        disabled={!isController}
+      />
 
       {connState !== "open" && status === "running" && (
-        <div className="conn-banner" data-testid="conn-banner" role="status">
-          {connState === "connecting"
-            ? "Reconnecting…"
-            : "Connection lost — trying to reconnect."}
-        </div>
+        <StatusPill tone="warn" testId="conn-pill">
+          {connState === "connecting" ? "Reconnecting…" : "Connection lost — retrying."}
+        </StatusPill>
       )}
 
+      <InGameSheet
+        saveName={saveName}
+        romName={romName}
+        romId={romId}
+        saveId={saveId}
+        role={role}
+        connState={connState}
+        roster={roster}
+        selfId={selfId}
+        multiplier={multiplier}
+        muted={muted}
+        isController={isController}
+        layoutPref={layoutPref}
+        effectiveLayout={layout}
+        onExit={onBack}
+        onCycleSpeed={cycleSpeed}
+        onToggleMute={toggleMute}
+        onLayoutChange={(v) => setLayoutPref(v === "auto" ? null : v)}
+        onHandover={handover}
+      />
+
       {status === "needs-tap" && (
-        <div className="start-overlay" data-testid="start-overlay">
-          <div className="start-card">
-            <div className="start-eyebrow">
-              <span className="rom-chip" style={{ fontSize: 10 }}>{romName}</span>
-              <span>#{saveId}</span>
+        <Modal open>
+          <div style={{ maxWidth: 480, margin: "0 auto", display: "flex", flexDirection: "column", justifyContent: "center", minHeight: "85dvh" }}>
+            <div style={{ fontSize: 11, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: ".06em" }}>{romName}</div>
+            <h1 style={{ fontSize: 28, marginBottom: 8 }}>{saveName}</h1>
+            <div style={{ fontSize: 13, color: "var(--fg-muted)", marginBottom: 18 }}>
+              {role === "controller" ? "You're in control" : role === "follower" ? "You're watching" : "Joining…"}
             </div>
-            <h1>{saveName}</h1>
-            <div className={`role-pill${role === "follower" ? " follower" : ""}`} data-testid="role-pill">
-              {role === "controller"
-                ? "You're in control"
-                : role === "follower"
-                  ? "You're watching"
-                  : "Joining…"}
-            </div>
-            {contributorEntries.length > 0 && (
-              <div className="contrib-row">
-                {contributorEntries.slice(0, 8).map(([n, ms]) => (
-                  <span key={n} className="contributor-chip" title={`${n} contributed ${formatMs(ms)}`}>
-                    <Avatar name={n} size={18} />
-                    <span className="name">{n}</span>
-                    <span className="time">{formatMs(ms)}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-            <p className="start-sub">
-              Tap below to start. We need the tap to unlock audio and enter
-              fullscreen on mobile.
+            <p style={{ color: "var(--fg-muted)", marginBottom: 18 }}>
+              Tap below to start. We need the tap to unlock audio and enter fullscreen.
             </p>
-            <div className="actions">
-              <button onClick={onTapStart} data-testid="tap-to-start" className="primary">
-                Tap to start
-              </button>
-            </div>
+            <button
+              onClick={onTapStart}
+              data-testid="tap-to-start"
+              style={{
+                background: "var(--accent)", color: "var(--accent-on)",
+                border: 0, borderRadius: "var(--r-md)", padding: 16,
+                fontSize: 17, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Start
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
