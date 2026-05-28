@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { navigate, useRoute } from "../lib/router";
+import { useHaptics } from "./hooks/useHaptics";
 import {
   loadGlobal, saveGlobal, loadRom, saveRom,
   useOrientation,
@@ -178,6 +179,7 @@ function EditorCanvas({
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [guides, setGuides] = useState<{ vert: number[]; horiz: number[] }>({ vert: [], horiz: [] });
   const safeArea = useSafeArea();
+  const haptics = useHaptics();
 
   const screenStyle = useMemo(() => {
     return orientation === "landscape"
@@ -192,6 +194,7 @@ function EditorCanvas({
   ) => {
     e.preventDefault();
     e.stopPropagation();
+    haptics("tap");
     onSelect(id);
     const wrap = wrapRef.current;
     if (!wrap) return;
@@ -218,7 +221,13 @@ function EditorCanvas({
           if (Math.abs(p.x - clamped.x) < 1) vert.push(p.x);
           if (Math.abs(p.y - clamped.y) < 1) horiz.push(p.y);
         }
-        setGuides({ vert, horiz });
+        setGuides((prev) => {
+          // Fire snap haptic when guides newly appear (transition empty → non-empty).
+          const wasEmpty = prev.vert.length === 0 && prev.horiz.length === 0;
+          const isNonEmpty = vert.length > 0 || horiz.length > 0;
+          if (wasEmpty && isNonEmpty) haptics("snap");
+          return { vert, horiz };
+        });
         onMove(id, { x: clamped.x, y: clamped.y });
       } else {
         const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);

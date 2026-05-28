@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
 import type { GbaButton } from "@gba/shared";
 import type { OrientationLayout } from "../lib/settings";
+import { useHaptics } from "./hooks/useHaptics";
 
 interface Props {
   onPress: (b: GbaButton) => void;
@@ -25,6 +26,7 @@ function attachButton(
   button: GbaButton,
   onPress: (b: GbaButton) => void,
   onRelease: (b: GbaButton) => void,
+  hapticsRef: { current: (e: "tap" | "snap" | "success" | "warn") => void },
 ): () => void {
   let activePointerId: number | null = null;
 
@@ -35,7 +37,7 @@ function attachButton(
     try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     el.classList.add("pad-pressed");
     onPress(button);
-    if ((navigator as any).vibrate) (navigator as any).vibrate(8);
+    hapticsRef.current("tap");
   };
   const release = (e: PointerEvent) => {
     if (e.pointerId !== activePointerId) return;
@@ -152,6 +154,10 @@ export function Gamepad({ onPress, onRelease, disabled, buttonLayout }: Props) {
   const startRef = useRef<HTMLButtonElement | null>(null);
   const selectRef = useRef<HTMLButtonElement | null>(null);
 
+  const haptics = useHaptics();
+  const hapticsRef = useRef(haptics);
+  useEffect(() => { hapticsRef.current = haptics; }, [haptics]);
+
   // Stash the latest handlers in refs so the pointer & keyboard effects
   // can install listeners ONCE per (mount, disabled-flip) — without those
   // refs, every parent re-render churns through detach/attach (and the
@@ -167,12 +173,12 @@ export function Gamepad({ onPress, onRelease, disabled, buttonLayout }: Props) {
     if (disabled) return;
     const offs: (() => void)[] = [];
     if (dpadRef.current) offs.push(attachDpad(dpadRef.current, pressVia, releaseVia));
-    if (aRef.current) offs.push(attachButton(aRef.current, "A", pressVia, releaseVia));
-    if (bRef.current) offs.push(attachButton(bRef.current, "B", pressVia, releaseVia));
-    if (lRef.current) offs.push(attachButton(lRef.current, "L", pressVia, releaseVia));
-    if (rRef.current) offs.push(attachButton(rRef.current, "R", pressVia, releaseVia));
-    if (startRef.current) offs.push(attachButton(startRef.current, "Start", pressVia, releaseVia));
-    if (selectRef.current) offs.push(attachButton(selectRef.current, "Select", pressVia, releaseVia));
+    if (aRef.current) offs.push(attachButton(aRef.current, "A", pressVia, releaseVia, hapticsRef));
+    if (bRef.current) offs.push(attachButton(bRef.current, "B", pressVia, releaseVia, hapticsRef));
+    if (lRef.current) offs.push(attachButton(lRef.current, "L", pressVia, releaseVia, hapticsRef));
+    if (rRef.current) offs.push(attachButton(rRef.current, "R", pressVia, releaseVia, hapticsRef));
+    if (startRef.current) offs.push(attachButton(startRef.current, "Start", pressVia, releaseVia, hapticsRef));
+    if (selectRef.current) offs.push(attachButton(selectRef.current, "Select", pressVia, releaseVia, hapticsRef));
     return () => { for (const o of offs) o(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabled]);

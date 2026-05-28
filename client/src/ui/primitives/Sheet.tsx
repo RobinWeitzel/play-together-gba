@@ -4,6 +4,7 @@
 // the existing Gamepad component) for reliable multi-touch behaviour.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useHaptics } from "../hooks/useHaptics";
 
 export type SheetState = "closed" | "peek" | "expanded";
 
@@ -26,6 +27,7 @@ export function Sheet({
 }: Props) {
   const elRef = useRef<HTMLDivElement | null>(null);
   const [dragging, setDragging] = useState(false);
+  const haptics = useHaptics();
   const dragStartY = useRef<number>(0);
   const dragStartTranslateY = useRef<number>(0);
 
@@ -78,6 +80,7 @@ export function Sheet({
     const peekOffset = h - peekHeight;
     // Snap to the closer of expanded (0) or peek (peekOffset).
     const next: SheetState = current < peekOffset / 2 ? "expanded" : "peek";
+    if (next !== state) haptics("snap");
     onStateChange(next);
   };
 
