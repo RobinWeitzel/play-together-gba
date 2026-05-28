@@ -230,8 +230,14 @@ function EditorCanvas({
         });
         onMove(id, { x: clamped.x, y: clamped.y });
       } else {
-        const dist = Math.hypot(ev.clientX - startX, ev.clientY - startY);
-        const next = start.size + (dist / shortAxis) * 0.04 * (ev.clientX > startX ? 1 : -1);
+        // Map diagonal drag to size: down-right grows, up-left shrinks.
+        // (dx + dy) projects the pointer movement onto the down-right
+        // diagonal direction. Scaled so a full short-axis drag changes
+        // size by ~1.5 units, which is enough to span the [0.5, 2.0]
+        // range with a finger swipe.
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        const next = start.size + ((dx + dy) / shortAxis) * 1.5;
         onResize(id, Math.max(0.5, Math.min(2.0, next)));
       }
     };

@@ -36,13 +36,15 @@
   cursor: grab;
 }
 .btn-handle .resize {
-  position: absolute; right: -8px; bottom: -8px;
-  width: 20px; height: 20px;
+  position: absolute; right: -14px; bottom: -14px;
+  width: 32px; height: 32px;
   background: var(--accent); color: var(--accent-on);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   cursor: nwse-resize;
-  font-size: 12px;
+  font-size: 14px;
+  touch-action: none;
+  z-index: 1; /* sit above .move's overlapping edge */
 }
 .btn-handle[data-selected="true"] .move { border-style: solid; }
 
