@@ -75,20 +75,24 @@ export function Sheet({
     const el = elRef.current;
     if (!el) return;
     try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-    const current = new DOMMatrix(getComputedStyle(el).transform).m42;
-    const totalDy = current - dragStartTranslateY.current;
 
-    // Directional commit: a drag of any meaningful size commits to a state
-    // matching its direction. Tiny drags (likely an accidental wobble during
-    // a tap) reset to the current state. Either way, we ALWAYS reset the
-    // transform back to a known resting offset — otherwise a drag that ends
-    // in the same state would leave the sheet wherever the finger let go
-    // (e.g., off-screen if dragged way down from peek).
-    const DRAG_THRESHOLD = 20;
+    // Use the pointer's final position vs. its start position. Reading the
+    // DOM's computed transform here is unreliable on mobile: pointermove
+    // events can be sparse during a fast swipe, so the last transform we
+    // wrote might lag the user's actual finger position. e.clientY captures
+    // where the finger ACTUALLY ended up.
+    const finalDy = e.clientY - dragStartY.current;
+
+    // Threshold is just enough to ignore tap-tremor (a few px wobble during
+    // what's clearly meant to be a tap). Any deliberate swipe — even a short
+    // one — should commit. Always reset transform to the snap state's rest
+    // offset so a drag that ends in the same state still snaps the sheet
+    // back to its anchor.
+    const TAP_TOLERANCE = 8;
     let next: SheetState;
-    if (Math.abs(totalDy) < DRAG_THRESHOLD) {
+    if (Math.abs(finalDy) < TAP_TOLERANCE) {
       next = state;
-    } else if (totalDy < 0) {
+    } else if (finalDy < 0) {
       next = "expanded";
     } else {
       next = "peek";

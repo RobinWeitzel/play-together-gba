@@ -26,11 +26,15 @@
 .app-sheet[data-dragging="true"] { transition: none; }
 
 .app-sheet-handle {
-  display: flex; justify-content: center; padding: 8px 0 4px;
+  display: flex; justify-content: center; align-items: center;
+  padding: 12px 0 8px;
+  min-height: 28px;
   flex-shrink: 0;
+  touch-action: none;
+  cursor: grab;
 }
 .app-sheet-handle::before {
-  content: ""; width: 36px; height: 4px;
+  content: ""; width: 40px; height: 4px;
   background: var(--fg-dim);
   border-radius: 99px;
 }
@@ -38,8 +42,21 @@
 .app-sheet-content {
   padding: 4px 16px 20px;
   flex: 1; min-height: 0;
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* In peek state, content must NOT be scrollable: an overflow:auto container
+   tells the browser to claim touches as a potential scroll, which steals
+   pointermove events from our drag handler and makes the swipe feel like
+   it "moves a little and snaps back." */
+.app-sheet[data-state="peek"] .app-sheet-content {
+  overflow: hidden;
+  touch-action: none;
+}
+.app-sheet[data-state="expanded"] .app-sheet-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .app-action-sheet { padding: 0 0 8px; }
