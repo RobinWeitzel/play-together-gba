@@ -1,5 +1,5 @@
 .home-v2 {
-  height: 100dvh;
+  position: fixed; inset: 0;
   background: var(--bg-0); color: var(--fg);
   display: flex; flex-direction: column;
   padding-top: var(--safe-top);

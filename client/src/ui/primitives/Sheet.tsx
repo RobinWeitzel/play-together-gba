@@ -76,12 +76,28 @@ export function Sheet({
     if (!el) return;
     try { el.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     const current = new DOMMatrix(getComputedStyle(el).transform).m42;
-    const h = el.getBoundingClientRect().height;
-    const peekOffset = h - peekHeight;
-    // Snap to the closer of expanded (0) or peek (peekOffset).
-    const next: SheetState = current < peekOffset / 2 ? "expanded" : "peek";
-    if (next !== state) haptics("snap");
-    onStateChange(next);
+    const totalDy = current - dragStartTranslateY.current;
+
+    // Directional commit: a drag of any meaningful size commits to a state
+    // matching its direction. Tiny drags (likely an accidental wobble during
+    // a tap) reset to the current state. Either way, we ALWAYS reset the
+    // transform back to a known resting offset — otherwise a drag that ends
+    // in the same state would leave the sheet wherever the finger let go
+    // (e.g., off-screen if dragged way down from peek).
+    const DRAG_THRESHOLD = 20;
+    let next: SheetState;
+    if (Math.abs(totalDy) < DRAG_THRESHOLD) {
+      next = state;
+    } else if (totalDy < 0) {
+      next = "expanded";
+    } else {
+      next = "peek";
+    }
+    el.style.transform = `translate3d(0, ${restingOffset(next)}px, 0)`;
+    if (next !== state) {
+      haptics("snap");
+      onStateChange(next);
+    }
   };
 
   return (
