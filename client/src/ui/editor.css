@@ -1,0 +1,73 @@
+.editor-shell {
+  position: fixed; inset: 0;
+  background: var(--bg-0); color: var(--fg);
+  display: flex; flex-direction: column;
+  z-index: 50;
+}
+.editor-topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: calc(var(--safe-top) + 8px) 16px 8px;
+  background: var(--bg-1);
+}
+.editor-topbar .scope-label { font-weight: 700; flex: 1; min-width: 0; }
+.editor-topbar .seg-wrap { flex-shrink: 0; }
+
+.editor-canvas {
+  flex: 1; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-0);
+  overflow: hidden;
+}
+.editor-screen {
+  background: #fff; border: 2px solid var(--bg-3);
+  box-shadow: var(--sh-2);
+  border-radius: 4px;
+}
+
+/* Editor handles overlay each button */
+.btn-handle {
+  position: absolute;
+  pointer-events: auto;
+}
+.btn-handle .move {
+  position: absolute; inset: 0;
+  border: 2px dashed var(--accent);
+  border-radius: 50%;
+  cursor: grab;
+}
+.btn-handle .resize {
+  position: absolute; right: -8px; bottom: -8px;
+  width: 20px; height: 20px;
+  background: var(--accent); color: var(--accent-on);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: nwse-resize;
+  font-size: 12px;
+}
+.btn-handle[data-selected="true"] .move { border-style: solid; }
+
+.editor-guides .guide {
+  position: absolute;
+  background: var(--accent);
+  opacity: .7;
+  pointer-events: none;
+}
+.editor-guides .guide.vert { width: 1px; top: 0; bottom: 0; }
+.editor-guides .guide.horiz { height: 1px; left: 0; right: 0; }
+
+.editor-bottombar {
+  background: var(--bg-1);
+  padding: 12px 16px calc(var(--safe-bottom) + 12px);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.editor-bottombar .row { display: flex; gap: 12px; align-items: center; }
+.editor-bottombar .actions { display: flex; gap: 10px; }
+.editor-bottombar .actions button {
+  flex: 1; min-height: var(--tap-min);
+  background: var(--bg-3); color: var(--fg);
+  border: 0; border-radius: var(--r-md);
+  font-size: 15px; font-weight: 600;
+  cursor: pointer;
+}
+.editor-bottombar .actions button.primary { background: var(--accent); color: var(--accent-on); }
+.editor-bottombar .actions button.danger { color: var(--danger); }
