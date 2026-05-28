@@ -1,8 +1,9 @@
 .home-v2 {
-  min-height: 100dvh;
+  height: 100dvh;
   background: var(--bg-0); color: var(--fg);
   display: flex; flex-direction: column;
   padding-top: var(--safe-top);
+  overflow: hidden;
 }
 
 .home-v2-topbar {
@@ -33,7 +34,7 @@
 
 .save-card-v2 {
   display: flex; flex-direction: column;
-  height: 64dvh;
+  height: min(64dvh, calc(100dvh - 200px));
   border-radius: var(--r-xl);
   padding: 18px;
   color: var(--fg);
@@ -87,10 +88,3 @@
   font-size: 16px;
 }
 
-.home-v2-footer {
-  display: flex; gap: 14px; justify-content: center;
-  padding: 8px 16px calc(var(--safe-bottom) + 12px);
-  color: var(--fg-dim); font-size: 11px;
-}
-.home-v2-footer a { color: var(--fg-dim); text-decoration: none; }
-.home-v2-footer a:hover { color: var(--fg-muted); }

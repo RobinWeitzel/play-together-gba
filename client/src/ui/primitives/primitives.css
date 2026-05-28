@@ -99,7 +99,7 @@
 .app-fab {
   position: fixed;
   right: calc(var(--safe-right) + 16px);
-  bottom: calc(var(--safe-bottom) + 24px);
+  bottom: calc(var(--safe-bottom) + 40px);
   width: 56px; height: 56px;
   border-radius: 50%; border: 0;
   background: var(--accent); color: var(--accent-on);

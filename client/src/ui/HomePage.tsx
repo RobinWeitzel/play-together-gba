@@ -141,19 +141,6 @@ export function HomePage() {
         )}
       </div>
 
-      <div className="home-v2-footer">
-        <a href="/spike">spike</a>
-        <a
-          href={`https://github.com/RobinWeitzel/play-together-gba/commit/${__APP_VERSION__}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Build commit"
-          data-testid="build-sha"
-        >
-          #{__APP_VERSION__}
-        </a>
-      </div>
-
       <FAB ariaLabel="New save" onClick={() => setNewSaveSheet(true)} testId="fab-new-save">
         +
       </FAB>
