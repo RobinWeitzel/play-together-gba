@@ -38,6 +38,7 @@ import {
   startAfter,
   type Database,
   type DatabaseReference,
+  type OnDisconnect,
 } from "firebase/database";
 import type {
   BackendAdapter,
@@ -77,6 +78,7 @@ export class FirebaseAdapter implements BackendAdapter {
   private meta: SessionMeta | null = null;
   private owner = false;
   private heartbeat: ReturnType<typeof setInterval> | null = null;
+  private holderDisconnect: OnDisconnect | null = null;
   private unsubs = new Set<Unsub>();
 
   // ---- identity / lifecycle ----
@@ -142,6 +144,13 @@ export class FirebaseAdapter implements BackendAdapter {
     const { goOnline } = await import("firebase/database");
     goOnline(this.db);
   }
+  // Test-only: a raw DatabaseReference at an ABSOLUTE path, authed as THIS
+  // adapter's user. Lets the rules tests attempt arbitrary (often illegal)
+  // reads/writes as a specific identity to probe the security rules.
+  __rawRef(absolutePath: string): DatabaseReference {
+    if (!this.db) throw new Error("not initialised");
+    return ref(this.db, absolutePath);
+  }
 
   currentMemberId(): MemberId | null {
     return this.uid;
@@ -166,14 +175,19 @@ export class FirebaseAdapter implements BackendAdapter {
     const sessionId = push(ref(this.db, "sessions")).key!;
     this.sessionId = sessionId;
     const now = serverTimestamp();
-    // One multi-location write so the session is created atomically: owner,
-    // meta, the owner as first member, and the owner holding the controller.
+    // Two ordered writes so the locked security rules (§6) bootstrap cleanly:
+    // RTDB rule cross-references via `root` see PRE-write state, so the owner's
+    // membership/controller writes must come AFTER `meta/owners` is committed.
+    // Only the creator can touch this session at this point (no invite exists),
+    // so the brief non-atomicity is invisible to anyone else.
+    await update(ref(this.db, `sessions/${sessionId}/meta`), {
+      owners: { [uid]: true },
+      romHash: opts.romHash,
+      romName: opts.romName,
+      createdAt: now,
+      speedMultiplier: 1,
+    });
     await update(ref(this.db, `sessions/${sessionId}`), {
-      "meta/owners": { [uid]: true },
-      "meta/romHash": opts.romHash,
-      "meta/romName": opts.romName,
-      "meta/createdAt": now,
-      "meta/speedMultiplier": 1,
       [`members/${uid}`]: { name: opts.name, joinedAt: now, lastSeen: now, owner: true },
       "controllerLock/holder": uid,
       "controllerLock/queue": { 0: uid },
@@ -182,6 +196,8 @@ export class FirebaseAdapter implements BackendAdapter {
     this.meta = { romHash: opts.romHash, romName: opts.romName, createdAt: Date.now(), ownerUid: uid };
     this.owner = true;
     this.setPresence();
+    // Owner holds the controller from creation → arm the drop-release.
+    await this.armReleaseOnDisconnect();
     return { sessionId };
   }
 
@@ -202,7 +218,9 @@ export class FirebaseAdapter implements BackendAdapter {
       this.sessionId = null;
       throw new Error("This invite has already been used. Ask for a fresh invite link.");
     }
-    await set(this.sref(`invites/${invite.inviteId}/redeemedAt`), serverTimestamp());
+    // (No separate redeemedAt write — it would hit the now-redeemed invite and
+    // the write-once rule would reject it. joinedAt on the member record is the
+    // timestamp of record; redeemedBy alone enforces single-use.)
 
     // Become a member — rules verify viaInvite.redeemedBy === auth.uid (§6).
     const now = serverTimestamp();
@@ -271,6 +289,7 @@ export class FirebaseAdapter implements BackendAdapter {
     this.unsubs.clear();
     if (this.db && this.sessionId && uid) {
       try {
+        await this.cancelReleaseOnDisconnect();
         // Release control if we hold it, and clear presence — gracefully.
         // (null-OR-uid: see releaseControl for why null must write null.)
         await runTransaction(this.sref("controllerLock/holder"), (h) =>
@@ -324,16 +343,30 @@ export class FirebaseAdapter implements BackendAdapter {
   setPresence(): void {
     const { uid } = this.requireSession();
     const lastSeenRef = this.sref(`members/${uid}/lastSeen`);
-    const holderRef = this.sref("controllerLock/holder");
-    // On an ungraceful drop, clear our presence AND release the controller lock
-    // so the next-in-queue can claim it (§7, §11 handoff on drop).
+    // On an ungraceful drop, clear our presence. (The controller-lock release
+    // onDisconnect is armed separately, only while we actually hold the lock —
+    // see armReleaseOnDisconnect: the security rules validate an onDisconnect
+    // write at REGISTRATION time, so a non-holder can't pre-arm a holder=null.)
     onDisconnect(lastSeenRef).remove().catch(() => {});
-    onDisconnect(holderRef).set(null).catch(() => {});
-    // Heartbeat keeps lastSeen fresh so others see us as online.
     const beat = () => { set(lastSeenRef, serverTimestamp()).catch(() => {}); };
     beat();
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = setInterval(beat, HEARTBEAT_MS);
+  }
+
+  // Arm "release the controller lock on ungraceful drop" (§11). MUST be called
+  // only while we hold the lock, because the rules check the onDisconnect write
+  // against current data when it is established — at which point
+  // controllerLock/holder must already equal our uid for it to be accepted.
+  private async armReleaseOnDisconnect(): Promise<void> {
+    const holderRef = this.sref("controllerLock/holder");
+    this.holderDisconnect = onDisconnect(holderRef);
+    try { await this.holderDisconnect.set(null); } catch { /* ignore */ }
+  }
+  private async cancelReleaseOnDisconnect(): Promise<void> {
+    if (!this.holderDisconnect) return;
+    try { await this.holderDisconnect.cancel(); } catch { /* ignore */ }
+    this.holderDisconnect = null;
   }
 
   // ---- control ----
@@ -347,6 +380,9 @@ export class FirebaseAdapter implements BackendAdapter {
     const won = res.committed && res.snapshot.val() === uid;
     if (won) {
       await set(this.sref("controllerLock/updatedAt"), serverTimestamp());
+      // Now that we hold the lock, arm the drop-release onDisconnect (passes the
+      // rules because holder === our uid right now).
+      await this.armReleaseOnDisconnect();
       // Ensure we're in the queue.
       await runTransaction(this.sref("controllerLock/queue"), (q: MemberId[] | null) => {
         const arr = Array.isArray(q) ? q.slice() : q ? Object.values(q) : [];
@@ -359,6 +395,9 @@ export class FirebaseAdapter implements BackendAdapter {
 
   async releaseControl(): Promise<void> {
     const { uid } = this.requireSession();
+    // Cancel the drop-release onDisconnect first so it can't later null a lock
+    // we've already handed off.
+    await this.cancelReleaseOnDisconnect();
     // NOTE the null-OR-uid handling: RTDB runs the transaction optimistically
     // against the (possibly empty → null) local cache first. Returning
     // `undefined` aborts FINALLY (no server re-run), so a naive `h === uid`

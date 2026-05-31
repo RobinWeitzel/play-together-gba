@@ -27,7 +27,12 @@ Get vendored mGBA (threaded build) running under cross-origin isolation from a s
 - [x] **5/5 integration tests pass** (`firebaseAdapter.itest.ts`): create→owner is member+controller; second device redeems invite & joins; roster syncs to both; double-redeem rejected; reconnect needs no fresh invite; **ungraceful drop via onDisconnect clears presence + releases control**.
 - Fixed an RTDB transaction stale-null abort pitfall in releaseControl/leave (DECISIONS D8).
 - firebase SDK not yet in the shipped bundle (nothing imports it until M3 wiring) — by design.
-### M2 — Capability model + security rules — ⬜
+### M2 — Capability model + security rules — ✅ (adversarially emulator-tested)
+- [x] `database.rules.json` — default-deny + §6 capability model (owner / single-use invite / member / controller), helpers inlined
+- [x] Owner creation, owner-only mintInvite, atomic single-use joinViaInvite (transaction), member-credential persistence, reconnect-without-invite (M1 adapter; rules enforce)
+- [x] **11/11 adversarial rules tests pass** (`firebaseRules.itest.ts`): non-owner can't mint; invite single-use at rules level; can't redeem to another uid; can't become member without a redeemed invite; non-member can't read/write; non-controller can't write inputs/speed/snapshot/speedMultiplier; claim-free-yes / steal-or-null-held-no; owner-only revoke; non-owner can't overwrite meta.
+- [x] Fixed onDisconnect-controller-release to arm only while holding the lock (DECISIONS D10) — a real production correctness fix.
+- [ ] Surface the signed-in user's own UID in-app for owner recovery (§7) — adapter exposes `currentMemberId()`; UI surfacing lands with the new UI in M3/M5.
 ### M3 — Wire sync/speed/handoff onto RTDB — ⬜
 ### M4 — Local ROM loading + hash gate — ⬜
 ### M5 — Persistence, guardrails, PWA, deploy, README — ⬜
