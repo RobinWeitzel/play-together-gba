@@ -1,5 +1,7 @@
 # PROGRESS — Serverless re-platforming
 
+**Status: M0–M5 COMPLETE.** The app is re-platformed onto a static GitHub Pages PWA + Firebase RTDB and **deployed live** at https://robinweitzel.de/play-together-gba/ . What remains is the human's one-time Firebase project + `FIREBASE_CONFIG` setup (QUESTIONS.md) and the on-device Android confirmation (QUESTIONS Q1) — the code path is fully verified (49 automated tests + live browser/second-device E2E).
+
 Branch: `serverless`. The pre-existing server-based app is preserved on `server-version` (pushed to origin).
 
 Tracking: this file (status), `DECISIONS.md` (choices + rationale), `QUESTIONS.md` (blockers for the human).

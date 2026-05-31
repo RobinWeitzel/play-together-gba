@@ -2,6 +2,17 @@
 
 Only hard blockers or things genuinely requiring the human go here. Empty = no blockers.
 
+## To go fully live — YOUR one-time actions (not blockers for the build)
+The re-platforming is complete and deployed. The deployed app currently shows
+"add your Firebase config" because only you can create the (free) Firebase
+project. Follow **README → "1. Firebase setup"** then **"2. Deploy"**, in short:
+1. Create a free **Spark** Firebase project; enable **Realtime Database** + **Anonymous Auth**.
+2. Publish `database.rules.json` (paste in console, or `firebase deploy --only database`).
+3. Add a repo **Actions variable `FIREBASE_CONFIG`** with your web-config JSON (it isn't a secret). Re-run the deploy.
+4. Open the site on Android and run the full flow (see Q1).
+The code path is fully verified against the Firebase emulator (49 tests) and via
+a live browser-owner + second-device E2E; only your own project + config remain.
+
 ## Open
 
 ### Q1 — Real Android-device verification of Milestone 0 (NOT a blocker)
