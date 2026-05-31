@@ -9,6 +9,12 @@ Tracking: this file (status), `DECISIONS.md` (choices + rationale), `QUESTIONS.m
 ## Status legend
 - ⬜ not started · 🟦 in progress · ✅ done · ⚠️ done-with-caveat (see notes) · 🛑 blocked (see QUESTIONS.md)
 
+## Post-M5 rework — config out of the build + reload/COEP fixes (✅, deployed)
+- **Security:** config is no longer baked into the GitHub Pages build (which let any visitor burn the owner's quota). Hosts paste their Firebase config **in-app** (`configStore`, on-device); invite links **carry the config** (`inviteCodec`, base64url in `#/join?d=`); `backend.ts` is a per-project adapter registry; `sessionStore` records each session's config. A device sees only sessions it created or was invited to, across any number of owners' projects. Deploy no longer writes `firebase-config.json` (verified 404 on prod). `FIREBASE_CONFIG` repo variable is obsolete.
+- **Reload Permission-denied (D16):** stable Firebase app name `gba-<projectId>` so the anonymous identity persists across reloads (was a new UID each load → not a member). Verified: UID stable, reconnect clean.
+- **COEP (D15):** `require-corp` blocks Firebase RTDB cross-origin traffic; switched to `credentialless` (still isolates + SAB). Hardcoded as SW default; SW cache → v3.
+- **Verified end-to-end** on emulator + browser: paste config → create game → reload (no permission denied) → mint config-bearing invite → distinct Node device joins via the link → owner roster shows 2. Live prod: COI true, COEP credentialless, empty lobby for visitors (no config), config.json 404. 31 unit + 23 integration green.
+
 ## Milestones (§14)
 
 ### M0 — Cross-origin isolation on a static host (make-or-break) — ⚠️ (LIVE-verified on deploy; Android pending human)
