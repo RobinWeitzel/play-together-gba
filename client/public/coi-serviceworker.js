@@ -18,7 +18,7 @@ if (typeof window === 'undefined') {
     // layered ON TOP of the COOP/COEP header injection below — every response,
     // cached or network, gets the isolation headers re-applied, so caching
     // never weakens cross-origin isolation. Bump CACHE to invalidate old shells.
-    const CACHE = "gba-shell-v1";
+    const CACHE = "gba-shell-v2";
 
     self.addEventListener("install", () => self.skipWaiting());
     self.addEventListener("activate", (event) => event.waitUntil((async () => {
@@ -74,12 +74,18 @@ if (typeof window === 'undefined') {
 
         const url = new URL(r.url);
         const cacheable = r.method === "GET" && url.origin === self.location.origin;
+        // The HTML entry point (and the runtime config) must never be served
+        // stale, or a redeploy's new hashed bundle is never picked up. GitHub
+        // Pages puts a short max-age on index.html, so bypass the HTTP cache for
+        // navigations and the config file. Hashed JS/CSS are immutable by name.
+        const bypassHttpCache = r.mode === "navigate" || url.pathname.endsWith("/firebase-config.json");
+        const netRequest = bypassHttpCache ? new Request(request, { cache: "reload" }) : request;
 
         event.respondWith((async () => {
             // Network-first so live deploys + Firebase traffic stay fresh; the
             // app-shell cache is a fallback for offline launch only.
             try {
-                const net = await fetch(request);
+                const net = await fetch(netRequest);
                 if (cacheable && net && net.status === 200 && net.type === "basic") {
                     const copy = net.clone();
                     caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
