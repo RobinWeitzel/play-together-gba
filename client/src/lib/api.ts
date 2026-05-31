@@ -1,83 +1,46 @@
-// Tiny client for /api/roms and /api/saves.
+// Serverless build: there is no Node server. This module used to call
+// /api/roms and /api/saves; it is now a thin LOCAL shim so the secondary
+// screens (per-game settings, button editor) keep working against the local
+// ROM store. "Saves" (the old server concept) are replaced by sessions, which
+// are managed from the home lobby — so the saves CRUD here degrades to no-ops.
 
-import type { SaveSummary, CreateSaveResponse } from "@gba/shared";
+import type { SaveSummary } from "@gba/shared";
+import { listRoms as listLocalRoms, getRomBytes } from "./romStore";
 
 export interface RomMeta {
-  id: string;
+  id: string; // = SHA-256 hash (the romHash key)
   name: string;
   hash: string;
   size: number;
 }
 
 export async function listRoms(): Promise<RomMeta[]> {
-  const res = await fetch("/api/roms");
-  if (!res.ok) throw new Error(`listRoms: ${res.status}`);
-  const j = await res.json();
-  return j.roms;
+  const roms = await listLocalRoms();
+  return roms.map((r) => ({ id: r.hash, name: r.name, hash: r.hash, size: r.size }));
 }
 
 export async function fetchRom(id: string): Promise<Uint8Array> {
-  const res = await fetch(`/api/roms/${encodeURIComponent(id)}`);
-  if (!res.ok) throw new Error(`fetchRom(${id}): ${res.status}`);
-  const ab = await res.arrayBuffer();
-  return new Uint8Array(ab as ArrayBuffer);
+  const bytes = await getRomBytes(id);
+  if (!bytes) throw new Error(`ROM ${id} not present on this device`);
+  return bytes;
 }
 
+// ---- "Saves" are sessions now; managed from the lobby. These degrade. ----
 export async function listSaves(): Promise<SaveSummary[]> {
-  const res = await fetch("/api/saves");
-  if (!res.ok) throw new Error(`listSaves: ${res.status}`);
-  const j = await res.json();
-  return j.saves;
+  return [];
 }
-
-export async function createSave(input: { name: string; romId: string }): Promise<SaveSummary> {
-  const res = await fetch("/api/saves", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
-    throw new Error(`createSave: ${res.status}${detail ? ` — ${detail}` : ""}`);
-  }
-  const j: CreateSaveResponse = await res.json();
-  return j.save;
+export async function createSave(_input?: { name: string; romId: string }): Promise<SaveSummary> {
+  throw new Error("Sessions are created from the home screen in the serverless build.");
 }
-
-async function setArchived(id: string, archived: boolean): Promise<SaveSummary> {
-  const path = archived ? "archive" : "unarchive";
-  const res = await fetch(`/api/saves/${encodeURIComponent(id)}/${path}`, { method: "POST" });
-  if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
-    throw new Error(`${path}: ${res.status}${detail ? ` — ${detail}` : ""}`);
-  }
-  return (await res.json()).save;
+export async function archiveSave(_id?: string): Promise<SaveSummary> {
+  throw new Error("not supported in the serverless build");
 }
-
-export const archiveSave = (id: string) => setArchived(id, true);
-export const unarchiveSave = (id: string) => setArchived(id, false);
-
-export async function deleteSave(id: string): Promise<void> {
-  const res = await fetch(`/api/saves/${encodeURIComponent(id)}`, { method: "DELETE" });
-  if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
-    throw new Error(`deleteSave: ${res.status}${detail ? ` — ${detail}` : ""}`);
-  }
+export async function unarchiveSave(_id?: string): Promise<SaveSummary> {
+  throw new Error("not supported in the serverless build");
 }
-
-export async function renameSave(id: string, name: string): Promise<SaveSummary> {
-  const res = await fetch(`/api/saves/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
-  if (!res.ok) {
-    let detail = "";
-    try { detail = (await res.json())?.error ?? ""; } catch { /* ignore */ }
-    throw new Error(`renameSave: ${res.status}${detail ? ` — ${detail}` : ""}`);
-  }
-  return (await res.json()).save;
+export async function deleteSave(_id?: string): Promise<void> {
+  /* no-op */
+}
+export async function renameSave(_id?: string, _name?: string): Promise<SaveSummary> {
+  throw new Error("not supported in the serverless build");
 }

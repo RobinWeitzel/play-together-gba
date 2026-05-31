@@ -30,6 +30,7 @@ export interface SessionMeta {
   romName: string;
   createdAt: number;
   ownerUid: MemberId;
+  speedMultiplier: number;
 }
 
 export interface RosterMember {
@@ -117,11 +118,14 @@ export interface BackendAdapter {
   // roster / presence
   onRoster(cb: (members: RosterMember[]) => void): Unsub;
   setPresence(): void; // heartbeat + onDisconnect
+  onConnected(cb: (connected: boolean) => void): Unsub; // RTDB .info/connected
 
   // control
   claimControl(): Promise<boolean>; // transaction; only if free / allowed
   releaseControl(): Promise<void>;
   onControlChanged(cb: (holder: MemberId | null) => void): Unsub;
+  onControllerState(cb: (s: { holder: MemberId | null; queue: MemberId[] }) => void): Unsub;
+  requestHandover(targetId: MemberId): Promise<void>; // queue target first, then release
 
   // sync relay (existing payloads, unchanged shapes + `by`)
   sendInput(msg: Omit<InputMsg, "by">): void;

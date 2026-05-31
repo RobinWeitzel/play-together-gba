@@ -33,7 +33,16 @@ Get vendored mGBA (threaded build) running under cross-origin isolation from a s
 - [x] **11/11 adversarial rules tests pass** (`firebaseRules.itest.ts`): non-owner can't mint; invite single-use at rules level; can't redeem to another uid; can't become member without a redeemed invite; non-member can't read/write; non-controller can't write inputs/speed/snapshot/speedMultiplier; claim-free-yes / steal-or-null-held-no; owner-only revoke; non-owner can't overwrite meta.
 - [x] Fixed onDisconnect-controller-release to arm only while holding the lock (DECISIONS D10) — a real production correctness fix.
 - [ ] Surface the signed-in user's own UID in-app for owner recovery (§7) — adapter exposes `currentMemberId()`; UI surfacing lands with the new UI in M3/M5.
-### M3 — Wire sync/speed/handoff onto RTDB — ⬜
+### M3 — Wire sync/speed/handoff onto RTDB — ✅ (itests + live browser+device E2E)
+- [x] SessionPage re-platformed onto the adapter (transport swapped; sync internals — snapshot loop, reconciliation, re-anchor, frame-tagged speed — preserved unchanged)
+- [x] New serverless lobby (HomePage): start game (pick local ROM → createSession, become owner), rejoin my sessions, open invite link, surface own UID
+- [x] JoinPage (#/join): atomic invite redemption → membership → forward to session (idempotent re-click)
+- [x] InGameSheet: mint single-use invite (owner) + copy link, take-control when free, directed handover, own-UID owner-recovery row
+- [x] Controller lock + handoff: claim/release transactions; next-in-queue auto-claim on free lock (jittered by queue order); drop handoff via onDisconnect; directed handover via queue-front+release
+- [x] Stores: `romStore` (IndexedDB), `sessionStore` (my sessions), `backend` (adapter singleton + runtime config)
+- [x] `firebaseSync.itest.ts` (4 tests): inputs/speed/snapshot fan out with author tag, snapshot overwrites latest, speed mirrors to meta, graceful handoff re-points publisher
+- [x] **Live browser E2E vs emulator**: owner creates session under locked rules, mGBA runs under COI, owner is controller, mints single-use invite; a distinct device (Node) redeems it & joins; owner's UI live-updates to Players(2); presence shows the guest "away" on disconnect.
+- 46 tests total green (26 unit + 20 integration).
 ### M4 — Local ROM loading + hash gate — ⬜
 ### M5 — Persistence, guardrails, PWA, deploy, README — ⬜
 ### M6 — Optional hardening (App Check, 2nd adapter) — ⬜ (not started until M0–M5 solid)

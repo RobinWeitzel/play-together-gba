@@ -24,6 +24,13 @@ interface Props {
   onToggleMute: () => void;
   onLayoutChange: (v: ControlLayout | "auto") => void;
   onHandover: (toConnId: string) => void;
+  // Serverless additions (SPEC-SERVERLESS §7/§11).
+  selfUid?: string | null;
+  isOwner?: boolean;
+  controllerFree?: boolean;
+  onTakeControl?: () => void;
+  inviteUrl?: string | null;
+  onMintInvite?: () => void;
 }
 
 export function InGameSheet(props: Props) {
@@ -31,6 +38,7 @@ export function InGameSheet(props: Props) {
     saveName, romName, romId, saveId, role, connState, roster, selfId,
     multiplier, muted, isController, layoutPref,
     onExit, onCycleSpeed, onToggleMute, onLayoutChange, onHandover,
+    selfUid, isOwner, controllerFree, onTakeControl, inviteUrl, onMintInvite,
   } = props;
 
   const [state, setState] = useState<SheetState>("peek");
@@ -82,6 +90,19 @@ export function InGameSheet(props: Props) {
             {/* Players */}
             <div className="exp-section">
               <h3>Players ({peopleInSession})</h3>
+              {!isController && controllerFree && onTakeControl && (
+                <button
+                  onClick={onTakeControl}
+                  data-testid="take-control"
+                  style={{
+                    background: "var(--accent)", color: "var(--accent-on)", border: 0,
+                    borderRadius: "var(--r-md)", padding: "8px 14px", fontSize: 13,
+                    fontWeight: 700, cursor: "pointer", marginBottom: 8,
+                  }}
+                >
+                  Take control
+                </button>
+              )}
               {roster.map((r) => (
                 <div className="exp-row" key={r.id}>
                   <Avatar name={r.name} size={26} />
@@ -104,6 +125,66 @@ export function InGameSheet(props: Props) {
                 </div>
               ))}
             </div>
+
+            {/* Invite & access (serverless) */}
+            <div className="exp-section">
+              <h3>Invite a player</h3>
+              {isOwner ? (
+                <>
+                  <p style={{ color: "var(--fg-muted)", fontSize: 12, margin: "0 0 8px" }}>
+                    Each invite link works once. Send a fresh one to each person.
+                  </p>
+                  <button
+                    onClick={onMintInvite}
+                    data-testid="mint-invite"
+                    style={{
+                      background: "var(--accent)", color: "var(--accent-on)", border: 0,
+                      borderRadius: "var(--r-md)", padding: "8px 14px", fontSize: 13,
+                      fontWeight: 700, cursor: "pointer",
+                    }}
+                  >
+                    Create invite link
+                  </button>
+                  {inviteUrl && (
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        readOnly
+                        value={inviteUrl}
+                        data-testid="invite-url"
+                        onFocus={(e: any) => e.target.select()}
+                        style={{ width: "100%", fontSize: 12, padding: 6, borderRadius: 6 }}
+                      />
+                      <div style={{ color: "var(--fg-muted)", fontSize: 11, marginTop: 4 }}>
+                        Copied to clipboard — share it with one person.
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p style={{ color: "var(--fg-muted)", fontSize: 12, margin: 0 }}>
+                  Only the person who started this game can invite others.
+                </p>
+              )}
+            </div>
+
+            {/* Your device ID — owner recovery (§7) */}
+            {selfUid && (
+              <div className="exp-section">
+                <h3>Your device ID</h3>
+                <p style={{ color: "var(--fg-muted)", fontSize: 12, margin: "0 0 8px" }}>
+                  {isOwner
+                    ? "If you ever lose owner access (e.g. you clear site data), add this ID back to meta/owners in the Firebase console. Keep it somewhere safe."
+                    : "Your durable ID on this device. Shown for support/recovery."}
+                </p>
+                <input
+                  readOnly
+                  value={selfUid}
+                  data-testid="self-uid"
+                  onFocus={(e: any) => e.target.select()}
+                  style={{ width: "100%", fontSize: 12, padding: 6, borderRadius: 6, fontFamily: "ui-monospace, monospace" }}
+                />
+              </div>
+            )}
 
             {/* Controls */}
             <div className="exp-section">

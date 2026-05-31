@@ -33,6 +33,8 @@ import {
   runTransaction,
   onDisconnect,
   serverTimestamp,
+  goOffline,
+  goOnline,
   query,
   orderByKey,
   startAfter,
@@ -135,13 +137,11 @@ export class FirebaseAdapter implements BackendAdapter {
   // fire on the server (used by integration tests to exercise drop handoff).
   async __simulateDropForTest(): Promise<void> {
     if (!this.db) return;
-    const { goOffline } = await import("firebase/database");
     if (this.heartbeat) { clearInterval(this.heartbeat); this.heartbeat = null; }
     goOffline(this.db);
   }
   async __reconnectSocketForTest(): Promise<void> {
     if (!this.db) return;
-    const { goOnline } = await import("firebase/database");
     goOnline(this.db);
   }
   // Test-only: a raw DatabaseReference at an ABSOLUTE path, authed as THIS
@@ -193,7 +193,7 @@ export class FirebaseAdapter implements BackendAdapter {
       "controllerLock/queue": { 0: uid },
       "controllerLock/updatedAt": now,
     });
-    this.meta = { romHash: opts.romHash, romName: opts.romName, createdAt: Date.now(), ownerUid: uid };
+    this.meta = { romHash: opts.romHash, romName: opts.romName, createdAt: Date.now(), ownerUid: uid, speedMultiplier: 1 };
     this.owner = true;
     this.setPresence();
     // Owner holds the controller from creation → arm the drop-release.
@@ -214,7 +214,9 @@ export class FirebaseAdapter implements BackendAdapter {
       if (current === null) return uid; // claim it
       return; // abort — already redeemed
     });
-    if (!result.committed || result.snapshot.val() !== uid) {
+    // Success if redeemedBy is now OUR uid — whether we just won it (committed)
+    // or had already redeemed it before (idempotent re-click of the link).
+    if (result.snapshot.val() !== uid) {
       this.sessionId = null;
       throw new Error("This invite has already been used. Ask for a fresh invite link.");
     }
@@ -265,6 +267,7 @@ export class FirebaseAdapter implements BackendAdapter {
       romName: v.romName,
       createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
       ownerUid: v.owners ? Object.keys(v.owners)[0] : "",
+      speedMultiplier: typeof v.speedMultiplier === "number" ? v.speedMultiplier : 1,
     };
     this.owner = !!(this.uid && v.owners && v.owners[this.uid] === true);
   }
@@ -279,6 +282,7 @@ export class FirebaseAdapter implements BackendAdapter {
       romName: v.romName,
       createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
       ownerUid: v.owners ? Object.keys(v.owners)[0] : "",
+      speedMultiplier: typeof v.speedMultiplier === "number" ? v.speedMultiplier : 1,
     };
   }
 
@@ -336,6 +340,13 @@ export class FirebaseAdapter implements BackendAdapter {
       members.sort((a, b) => a.joinedAt - b.joinedAt);
       cb(members);
     });
+    this.unsubs.add(off);
+    return () => { off(); this.unsubs.delete(off); };
+  }
+
+  onConnected(cb: (connected: boolean) => void): Unsub {
+    if (!this.db) throw new Error("adapter not initialised");
+    const off = onValue(ref(this.db, ".info/connected"), (snap) => cb(snap.val() === true));
     this.unsubs.add(off);
     return () => { off(); this.unsubs.delete(off); };
   }
@@ -415,6 +426,30 @@ export class FirebaseAdapter implements BackendAdapter {
     return () => { off(); this.unsubs.delete(off); };
   }
 
+  onControllerState(cb: (s: { holder: MemberId | null; queue: MemberId[] }) => void): Unsub {
+    const off = onValue(this.sref("controllerLock"), (snap) => {
+      const v = snap.val() ?? {};
+      const queue = Array.isArray(v.queue) ? v.queue : v.queue ? Object.values<MemberId>(v.queue) : [];
+      cb({ holder: v.holder ?? null, queue });
+    });
+    this.unsubs.add(off);
+    return () => { off(); this.unsubs.delete(off); };
+  }
+
+  // Directed handover (§11): put the target at the front of the queue, then
+  // release. The next-in-queue auto-claim (in the UI) then routes control to
+  // them. We can't set holder to someone else's uid directly (the rules only
+  // allow setting it to our own uid or null), so this two-step is the path.
+  async requestHandover(targetId: MemberId): Promise<void> {
+    this.requireSession();
+    await runTransaction(this.sref("controllerLock/queue"), (q: MemberId[] | null) => {
+      const arr = Array.isArray(q) ? q.slice() : q ? Object.values<MemberId>(q) : [];
+      const without = arr.filter((x) => x !== targetId);
+      return [targetId, ...without];
+    });
+    await this.releaseControl();
+  }
+
   // ---- sync relay ----
   sendInput(msg: Omit<InputMsg, "by">): void {
     const { uid } = this.requireSession();
@@ -437,24 +472,18 @@ export class FirebaseAdapter implements BackendAdapter {
     set(this.sref("meta/speedMultiplier"), multiplier).catch(() => {});
   }
 
-  // onChildAdded replays existing children on attach; we ignore everything that
-  // already existed (push keys are chronological) so a late joiner doesn't
-  // re-apply stale relay traffic. Inputs/speed are pruned in M5.
+  // onChildAdded replays existing children on attach; we want only NEW relay
+  // traffic so a late joiner doesn't re-apply stale inputs (they bootstrap from
+  // the snapshot instead). push().key generates a time-ordered id WITHOUT
+  // writing; startAfter(it) bounds the listener to children created after now —
+  // race-free, no initial read. Inputs/speed are pruned in M5.
   private onChildAfterNow<T>(path: string, map: (raw: any, key: string) => T, cb: (msg: T) => void): Unsub {
     const r = this.sref(path);
-    let started = false;
-    const off1 = onValue(query(r, orderByKey()), (snap) => {
-      // Determine the last existing key, then listen only after it.
-      if (started) return;
-      started = true;
-      let lastKey: string | null = null;
-      snap.forEach((c) => { lastKey = c.key; return undefined as any; });
-      const q = lastKey ? query(r, orderByKey(), startAfter(lastKey)) : query(r, orderByKey());
-      const off2 = onChildAdded(q, (c) => { cb(map(c.val(), c.key!)); });
-      this.unsubs.add(off2);
-    }, { onlyOnce: true });
-    this.unsubs.add(off1);
-    return () => { off1(); };
+    const thresholdKey = push(r).key!;
+    const q = query(r, orderByKey(), startAfter(thresholdKey));
+    const off = onChildAdded(q, (c) => cb(map(c.val(), c.key!)));
+    this.unsubs.add(off);
+    return () => { off(); this.unsubs.delete(off); };
   }
 
   onInput(cb: (msg: InputMsg) => void): Unsub {
