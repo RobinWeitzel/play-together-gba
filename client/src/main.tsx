@@ -13,13 +13,8 @@ const rootEl = document.getElementById("root")!;
 // boot the emulator twice and break frame counting + audio.
 createRoot(rootEl).render(<App />);
 
-// Register a pass-through service worker so Android Chrome treats the site
-// as an installable PWA (it requires a SW with a fetch handler). The SW
-// itself does no caching — see /sw.js.
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Non-fatal: install prompt won't appear, but the app still runs.
-    });
-  });
-}
+// Service worker: in the serverless build the COOP/COEP shim
+// (coi-serviceworker.js, loaded from index.html) IS the service worker. It
+// registers itself, so we no longer register a separate pass-through SW here.
+// App-shell caching for offline/installability is layered onto that same SW
+// in Milestone 5.

@@ -63,7 +63,10 @@ async function loadFactory() {
       // mgba.js lives in /client/public/emulator/ — Vite serves /public
       // verbatim and forbids static imports of those files. Computing the
       // URL at runtime keeps the import outside Vite's static graph.
-      const mgbaUrl = new URL("/emulator/mgba.js", window.location.href).href;
+      // BASE_URL (e.g. "/" locally, "/play-together-gba/" on GitHub Pages)
+      // makes this resolve under any hosting subpath. mgba.wasm is located by
+      // Emscripten relative to mgba.js, so it follows automatically.
+      const mgbaUrl = new URL(`${import.meta.env.BASE_URL}emulator/mgba.js`, window.location.href).href;
       const mod: any = await import(/* @vite-ignore */ mgbaUrl);
       return (mod.default ?? mod) as (opts: { canvas: HTMLCanvasElement }) => Promise<any>;
     })();

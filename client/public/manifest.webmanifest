@@ -2,17 +2,17 @@
   "name": "Play-Together GBA",
   "short_name": "Play GBA",
   "description": "Shared Game Boy Advance saves you can pick up together.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0c0c14",
   "theme_color": "#0c0c14",
   "categories": ["games", "entertainment"],
   "icons": [
-    { "src": "/icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
-    { "src": "/icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
-    { "src": "/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+    { "src": "icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
   ]
 }

@@ -7,9 +7,11 @@ import { PrimitivesShowcase } from "./ui/PrimitivesShowcase";
 import { SettingsPage } from "./ui/SettingsPage";
 import { PerGameSettingsPage } from "./ui/PerGameSettingsPage";
 import { ButtonEditor } from "./ui/ButtonEditor";
+import { M0DiagPage } from "./ui/M0DiagPage";
 
 export function App() {
   const route = useRoute();
+  if (route.path === "/m0") return <M0DiagPage />;
   if (route.path === "/spike") return <SpikePage />;
   if (route.path === "/play") return <PlayPage />;
   if (route.path === "/primitives") return <PrimitivesShowcase />;

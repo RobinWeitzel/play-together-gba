@@ -2,12 +2,19 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { execSync } from "node:child_process";
 
-// The Node server (server workspace) handles /api/* and /ws and applies the
-// cross-origin isolation headers itself. In dev we proxy everything there.
-const SERVER_URL = process.env.SERVER_URL ?? "http://localhost:8080";
+// Serverless build: there is no Node server. The app is a fully static bundle
+// hosted on GitHub Pages. Cross-origin isolation in PRODUCTION is provided by
+// the coi-serviceworker COOP/COEP shim (public/coi-serviceworker.js); in DEV we
+// set the headers directly here so `crossOriginIsolated === true` without the
+// SW reload dance.
+//
+// `base` must match the GitHub Pages path. Project pages serve under
+// `https://<user>.github.io/<repo>/`, so the deploy workflow sets
+// VITE_BASE=/<repo>/. Locally it defaults to "/". All runtime-computed URLs use
+// `import.meta.env.BASE_URL` so they resolve correctly under any base.
+const BASE = process.env.VITE_BASE ?? "/";
 
-// Commit SHA shown in the UI footer. CI/Docker pass GIT_SHA as a build arg;
-// local builds fall back to reading the working tree.
+// Commit SHA shown in the UI footer. CI passes GIT_SHA; local builds read git.
 function resolveAppVersion(): string {
   const fromEnv = process.env.GIT_SHA?.trim();
   if (fromEnv) return fromEnv.slice(0, 7);
@@ -27,6 +34,7 @@ const COOP_COEP_HEADERS = {
 };
 
 export default defineConfig({
+  base: BASE,
   plugins: [react()],
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSION),
@@ -34,21 +42,10 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5173,
-    // COOP/COEP on Vite's HTML/JS responses. /api and /ws are proxied to the
-    // Node server which sets these headers itself.
     headers: COOP_COEP_HEADERS,
-    proxy: {
-      "/api": {
-        target: SERVER_URL,
-        changeOrigin: true,
-      },
-      "/ws": {
-        target: SERVER_URL.replace(/^http/, "ws"),
-        ws: true,
-      },
-    },
   },
   preview: {
+    port: 4173,
     headers: COOP_COEP_HEADERS,
   },
   build: {
